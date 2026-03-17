@@ -1,4 +1,10 @@
-# VisionCoach: AI-Powered Public Speaking Analysis
+# Vision: AI-Powered Public Speaking Analysis
+
+<p align="center">
+  <img src="assets/images/COMBINE.jpg" width="800" alt="VisionCoach App Interface">
+  <br>
+  <i>From left to right: User Dashboard, Real-time Recording, and Multimodal Analysis Results.</i>
+</p>
 
 ## 🚀 The Vision
 
