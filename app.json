@@ -1,0 +1,72 @@
+{
+  "expo": {
+    "name": "Vison",
+    "slug": "vision",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/logo.jpg",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/images/logo.jpg",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "SpeakingCoach uses the camera to record your presentations.",
+        "NSMicrophoneUsageDescription": "SpeakingCoach uses the microphone to record your speech.",
+        "NSPhotoLibraryAddUsageDescription": "SpeakingCoach saves your recordings to your library."
+      }
+    },
+    "android": {
+      "newArchEnabled": false,
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/images/bg.png",
+        "backgroundImage": "./assets/images/bg.png",
+        "monochromeImage": "./assets/images/bg.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.anonymous.Vision",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-font",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "SpeakingCoach uses the camera to record your presentations.",
+          "microphonePermission": "SpeakingCoach uses the microphone to capture your speech."
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow SpeakingCoach to access your library.",
+          "savePhotosPermission": "Allow SpeakingCoach to save your recordings."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/logo.jpg",
+          "color": "#1152D4"
+        }
+      ],
+      "expo-sharing",
+      "expo-video",
+      "expo-audio",
+      "expo-asset"
+    ]
+  }
+}
