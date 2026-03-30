@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 import { SessionListEntry } from '../types/cache';
 import { STREAK } from '../theme/constants';
-import { getRecentSessions } from '../cache/sessionCache';
+import { getSessionList } from '../cache/sessionCache';
 import apiClient from '../api/client';
 
 export interface SkillStreak {
@@ -14,7 +14,7 @@ export interface SkillStreak {
 }
 
 export interface StreakState {
-  sessions: SessionListEntry[];           // last 8, for grid display
+  sessions: SessionListEntry[];           // full session history, newest-first
   skillStreaks: SkillStreak[];
   milestoneTip: string | null;            // non-null when a new milestone is hit
   milestoneTipSkill: string | null;
@@ -37,7 +37,7 @@ export const useStreakStore = create<StreakState>((set, get) => ({
     if (!userId) return;
 
     set({ isLoading: true });
-    const sessions = await getRecentSessions(userId, STREAK.GRID_SIZE);
+    const sessions = await getSessionList(userId);
     const skillStreaks = computeSkillStreaks(sessions);
     const hasCompletedTodaySession = checkTodaySession(sessions);
     set({ sessions, skillStreaks, hasCompletedTodaySession, isLoading: false });

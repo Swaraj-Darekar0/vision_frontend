@@ -20,7 +20,7 @@ export const StreakSection: React.FC<StreakSectionProps> = ({ sessions, onPress 
   >
     <View>
       <Text style={styles.label}>Activity Streak</Text>
-      <Text style={styles.subtext}>Last 8 sessions</Text>
+      <Text style={styles.subtext}>Repeats every 8 sessions</Text>
     </View>
     <StreakGrid sessions={sessions} />
     <MaterialIcons name="chevron-right" size={24} color={colors.textMuted} />

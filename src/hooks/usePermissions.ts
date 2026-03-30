@@ -1,22 +1,41 @@
-import { useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
+import { Camera } from 'react-native-vision-camera';
 import { Alert, Linking } from 'react-native';
+import { useState, useEffect } from 'react';
 
 export function usePermissions() {
-  const [camPerm, requestCam] = useCameraPermissions();
-  const [micPerm, requestMic] = useMicrophonePermissions();
+  const [hasCameraPermission, setHasCameraPermission] = useState(false);
+  const [hasMicrophonePermission, setHasMicrophonePermission] = useState(false);
 
-  const allGranted = camPerm?.granted === true && micPerm?.granted === true;
+  const checkPermissions = async () => {
+    const camStatus = Camera.getCameraPermissionStatus();
+    const micStatus = Camera.getMicrophonePermissionStatus();
+    setHasCameraPermission(camStatus === 'granted');
+    setHasMicrophonePermission(micStatus === 'granted');
+  };
+
+  useEffect(() => {
+    checkPermissions();
+  }, []);
+
+  const allGranted = hasCameraPermission && hasMicrophonePermission;
 
   const requestAll = async (): Promise<boolean> => {
-    const cam = await requestCam();
-    const mic = await requestMic();
-    if (!cam.granted || !mic.granted) {
+    const camStatus = await Camera.requestCameraPermission();
+    const micStatus = await Camera.requestMicrophonePermission();
+
+    const camGranted = camStatus === 'granted';
+    const micGranted = micStatus === 'granted';
+
+    setHasCameraPermission(camGranted);
+    setHasMicrophonePermission(micGranted);
+
+    if (!camGranted || !micGranted) {
       Alert.alert(
         'Permissions Required',
         'SpeakingCoach needs camera and microphone access. Enable both in Settings.',
         [
           { text: 'Not Now',      style: 'cancel' },
-          { text: 'Open Settings',onPress: () => Linking.openSettings() },
+          { text: 'Open Settings', onPress: () => Linking.openSettings() },
         ],
       );
       return false;

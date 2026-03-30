@@ -139,6 +139,10 @@ const deltaStyles = StyleSheet.create({
 // ─── Main Component ────────────────────────────────────────────────────────────
 export const ResultsView: React.FC<ResultsViewProps> = React.memo(({ result, sessionDurationLabel, localVideoUri }) => {
   const { overall_scores, llm_feedback, progress_comparison, raw_metrics_snapshot } = result;
+  const displayedDurationLabel = sessionDurationLabel || result.session_metadata.duration_label || '--';
+  const topicalRelevanceAnalysis =
+    llm_feedback.topical_relevance_analysis?.trim() ||
+    'No topical relevance analysis was provided for this session.';
 
   const [progressOpen, setProgressOpen] = useState(false);
 
@@ -217,10 +221,10 @@ export const ResultsView: React.FC<ResultsViewProps> = React.memo(({ result, ses
             </Text>
           </View>
         </View>
-        {sessionDurationLabel && (
+        {displayedDurationLabel && (
           <View style={styles.durationRow}>
             <MaterialIcons name="schedule" size={16} color={colors.textSecondary} />
-            <Text style={styles.durationText}>{sessionDurationLabel}</Text>
+            <Text style={styles.durationText}>{displayedDurationLabel}</Text>
           </View>
         )}
       </Card>
@@ -324,23 +328,12 @@ export const ResultsView: React.FC<ResultsViewProps> = React.memo(({ result, ses
       </Card>
 
       {/* ── Timestamped Moments ────────────────────────────────────────────── */}
-      <Text style={styles.sectionTitle}>Timestamped Moments</Text>
+      <Text style={styles.sectionTitle}>Topic Relevance</Text>
       <Card style={styles.listCard}>
-        {llm_feedback.timestamped_moments.map((moment, i) => (
-          <View
-            key={i}
-            style={[
-              styles.momentItem,
-              i === llm_feedback.timestamped_moments.length - 1 && styles.listItemLast,
-            ]}
-          >
-            <View style={styles.momentTimeBadge}>
-              <MaterialIcons name="schedule" size={12} color={colors.primary} />
-              <Text style={styles.momentTime}>{moment.time}</Text>
-            </View>
-            <Text style={styles.momentNote}>{moment.note}</Text>
-          </View>
-        ))}
+        <View style={styles.topicRelevanceRow}>
+          <MaterialIcons name="topic" size={18} color={colors.primary} />
+          <Text style={styles.topicRelevanceText}>{topicalRelevanceAnalysis}</Text>
+        </View>
       </Card>
 
       {/* ── View Your Progression (collapsible) ───────────────────────────── */}
@@ -494,6 +487,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   fillerNoDataText: { color: colors.positive, fontSize: fontSize.sm, fontFamily: fonts.medium },
+  topicRelevanceRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  topicRelevanceText: {
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
+    fontFamily: fonts.regular,
+    lineHeight: 20,
+    flex: 1,
+  },
 
   // ── Timestamped Moments
   momentItem: {

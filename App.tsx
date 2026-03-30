@@ -95,7 +95,7 @@ export default function App() {
     });
 
     return () => {
-      Notifications.removeNotificationSubscription(responseListener);
+      responseListener.remove();
     };
   }, []);
 

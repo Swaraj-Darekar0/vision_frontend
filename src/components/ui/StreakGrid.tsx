@@ -10,7 +10,9 @@ interface StreakGridProps {
 
 export const StreakGrid: React.FC<StreakGridProps> = ({ sessions }) => {
   const MAX_SQUARES = 8;
-  const reversedSessions = [...sessions].reverse().slice(0, MAX_SQUARES);
+  const cycleCount =
+    sessions.length === 0 ? 0 : sessions.length % MAX_SQUARES || MAX_SQUARES;
+  const reversedSessions = sessions.slice(0, cycleCount).reverse();
   const squares = Array.from({ length: MAX_SQUARES });
 
   return (

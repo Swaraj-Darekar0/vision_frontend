@@ -12,7 +12,7 @@ import { spacing } from '../../theme/spacing';
 // Event type → color + icon mapping
 const EVENT_META: Record<string, { color: string; icon: string; label: string }> = {
   rapid_speech_segment:    { color: '#F59E0B', icon: 'speed',        label: 'Fast pace'   },
-  monotone_segment:        { color: '#3B8BD4', icon: 'graphic_eq',   label: 'Monotone'    },
+  monotone_segment:        { color: '#3B8BD4', icon: 'equalizer',    label: 'Monotone'    },
   vocal_instability_spike: { color: '#EF4444', icon: 'mic_off',      label: 'Instability' },
   excessive_pause:         { color: '#8B5CF6', icon: 'pause_circle',  label: 'Long pause'  },
 };

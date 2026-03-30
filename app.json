@@ -11,6 +11,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
@@ -42,11 +45,16 @@
     "plugins": [
       "expo-secure-store",
       "expo-font",
+       ["expo-av", {
+        "microphonePermission": "SpeakingCoach uses the microphone to capture your speech."
+      }],
       [
-        "expo-camera",
+        "react-native-vision-camera",
         {
           "cameraPermission": "SpeakingCoach uses the camera to record your presentations.",
-          "microphonePermission": "SpeakingCoach uses the microphone to capture your speech."
+          "microphonePermission": "SpeakingCoach uses the microphone to capture your speech.",
+          "enableFrameProcessors": true
+        
         }
       ],
       [

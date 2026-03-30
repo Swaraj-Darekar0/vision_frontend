@@ -13,6 +13,7 @@ export interface TimestampedMoment {
 export interface LLMFeedback {
   overall_summary:                  string;
   progress_narrative:               string;
+  topical_relevance_analysis:       string;
   timestamped_moments:              TimestampedMoment[];
   top_3_action_items:               string[];
   motivational_closing:             string;

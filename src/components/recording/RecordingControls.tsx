@@ -1,8 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { colors, fonts, fontSize, spacing, radius } from '../../theme';
-import { RecordingState } from '../../hooks/useRecording';
+import { colors, spacing } from '../../theme';
+import { RecordingState } from '../../hooks/useMLKitPoseRecording';
 
 interface RecordingControlsProps {
   state: RecordingState;
@@ -13,18 +13,18 @@ interface RecordingControlsProps {
 }
 
 export const RecordingControls: React.FC<RecordingControlsProps> = ({
-  state, onStop, onPause, onResume, onFlip
+  state,
+  onStop,
+  onPause,
+  onResume,
+  onFlip,
 }) => (
   <View style={styles.container}>
     <TouchableOpacity onPress={onFlip} style={styles.secondaryButton}>
       <MaterialIcons name="flip-camera-ios" size={28} color={colors.textPrimary} />
     </TouchableOpacity>
 
-    <TouchableOpacity 
-      onPress={onStop} 
-      style={styles.stopButton}
-      activeOpacity={0.8}
-    >
+    <TouchableOpacity onPress={onStop} style={styles.stopButton} activeOpacity={0.8}>
       <View style={styles.stopInner} />
     </TouchableOpacity>
 

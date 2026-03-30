@@ -7,7 +7,8 @@ const QUEUE_KEY = 'sc_offline_queue_v1';
 
 export interface QueuedSession {
   id:             string;    // uuid — generated at queue time
-  videoUri:       string;    // local file path (compressed)
+  landmarkUri:    string;    // local JSON file path
+  audioUri:       string;    // local audio file path
   topicTitle:     string;
   elapsedSeconds: number;
   queuedAt:       string;    // ISO 8601
@@ -50,9 +51,14 @@ export async function dequeueSession(id: string): Promise<void> {
   const queue = await getQueue();
   const session = queue.find((s) => s.id === id);
 
-  // Delete the video file from disk before removing from queue
+  // Delete the local files from disk before removing from queue
   if (session) {
-    await FileSystem.deleteAsync(session.videoUri, { idempotent: true });
+    if (session.landmarkUri) {
+      await FileSystem.deleteAsync(session.landmarkUri, { idempotent: true });
+    }
+    if (session.audioUri) {
+      await FileSystem.deleteAsync(session.audioUri, { idempotent: true });
+    }
   }
 
   const updated = queue.filter((s) => s.id !== id);

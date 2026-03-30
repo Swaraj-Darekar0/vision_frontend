@@ -1,20 +1,15 @@
 import React, { useEffect } from 'react';
-import { View, StyleSheet, Alert, SafeAreaView, TouchableOpacity, Text } from 'react-native';
-import { CameraView } from 'expo-camera';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { View, StyleSheet, Alert, SafeAreaView, TouchableOpacity, Text, Platform } from 'react-native';
+import { Camera } from 'react-native-vision-camera';
+import { useNavigation, useRoute, RouteProp, useIsFocused } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
-import NetInfo from '@react-native-community/netinfo';
-import 'react-native-get-random-values';
-import { v4 as uuidv4 } from 'uuid';
 
-import { colors, fonts, fontSize, spacing, radius } from '../theme';
+import { colors, fonts, fontSize, spacing } from '../theme';
 import { RootStackParamList } from '../types/navigation';
-import { useRecording } from '../hooks/useRecording';
+import { useMLKitPoseRecording } from '../hooks/useMLKitPoseRecording';
 import { usePermissions } from '../hooks/usePermissions';
 import { useSessionStore } from '../store/sessionStore';
-import { enqueueSession, getQueueCount } from '../cache/offlineQueue';
-import { OFFLINE_QUEUE } from '../theme/constants';
 
 import { RecordingHeader } from '../components/recording/RecordingHeader';
 import { RecordingControls } from '../components/recording/RecordingControls';
@@ -28,152 +23,168 @@ type RecordingScreenRouteProp = RouteProp<RootStackParamList, 'Recording'>;
 const RecordingScreen = () => {
   const navigation = useNavigation<RecordingScreenNavigationProp>();
   const route = useRoute<RecordingScreenRouteProp>();
+  const isFocused = useIsFocused();
   const { topicTitle, minDurationSeconds = 60 } = route.params;
 
   const { allGranted, requestAll } = usePermissions();
-  const { 
-    cameraRef, state, videoUri, elapsedSeconds, facing,
-    startRecording, stopRecording, pauseRecording, resumeRecording, flipCamera 
-  } = useRecording();
-  
+  const {
+    cameraRef,
+    device,
+    frameProcessor,
+    state,
+    elapsedSeconds,
+    isModelReady,
+    framingReady,
+    framingMessage,
+    startRecording,
+    stopRecording,
+    pauseRecording,
+    resumeRecording,
+  } = useMLKitPoseRecording();
+
   const { setRecordingMeta } = useSessionStore();
 
   useEffect(() => {
     if (!allGranted) {
-      requestAll().then(granted => {
+      requestAll().then((granted) => {
         if (!granted) navigation.goBack();
       });
     }
-  }, [allGranted]);
+  }, [allGranted, navigation, requestAll]);
 
-  useEffect(() => {
-    if (state !== 'stopped' || !videoUri) return;
+  const doStop = async () => {
+    const { landmarkPayload, audioUri, localVideoUri } = await stopRecording();
 
-    (async () => {
-      const net = await NetInfo.fetch();
-
-      if (net.isConnected) {
-        navigation.replace('Processing', { videoUri });
-      } else {
-        const queueCount = await getQueueCount();
-
-        if (queueCount >= OFFLINE_QUEUE.MAX_SESSIONS) {
-          Alert.alert(
-            'Queue Full',
-            `You have ${OFFLINE_QUEUE.MAX_SESSIONS} sessions waiting to upload. Connect to the internet to analyse them first.`,
-            [{ text: 'OK', onPress: () => navigation.replace('Dashboard') }],
-          );
-          return;
-        }
-
-        await enqueueSession({
-          id: uuidv4(),
-          videoUri,
-          topicTitle,
-          elapsedSeconds,
-          queuedAt: new Date().toISOString(),
-        });
-
-        Alert.alert(
-          'Saved Offline',
-          'Your session has been saved. It will be uploaded automatically when you reconnect to the internet.',
-          [{ text: 'OK', onPress: () => navigation.replace('Dashboard') }]
-        );
-      }
-    })();
-  }, [state, videoUri]);
-
-  const handleStop = async () => {
-    // Check queue limit before stopping
-    const queueCount = await getQueueCount();
-    const net = await NetInfo.fetch();
-    
-    if (!net.isConnected && queueCount >= OFFLINE_QUEUE.MAX_SESSIONS) {
+    if (landmarkPayload.total_frames === 0) {
       Alert.alert(
-        'Queue Full',
-        'Cannot save more offline sessions. Please connect to the internet to clear your queue.',
+        'Recording Issue',
+        'No pose data was captured while recording. Please try again.',
         [{ text: 'OK' }]
       );
       return;
     }
 
+    if (!audioUri) {
+      Alert.alert(
+        'Recording Issue',
+        'No audio data was captured. Please try recording again.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    setRecordingMeta(landmarkPayload.duration_seconds, topicTitle);
+    navigation.replace('Processing', { landmarkPayload, audioUri, localVideoUri });
+  };
+
+  const handleStop = async () => {
     if (elapsedSeconds < minDurationSeconds) {
       Alert.alert(
         'Recording Too Short',
         `This topic requires at least ${Math.ceil(minDurationSeconds / 60)} minute(s). Stop anyway?`,
         [
           { text: 'Keep Recording', style: 'cancel' },
-          { text: 'Stop Anyway', style: 'destructive', onPress: doStop },
+          { text: 'Stop Anyway', style: 'destructive', onPress: () => void doStop() },
         ]
       );
       return;
     }
-    doStop();
-  };
-
-  const doStop = () => {
-    setRecordingMeta(elapsedSeconds, topicTitle);
-    stopRecording();
+    await doStop();
   };
 
   const handleStart = () => {
-    startRecording();
+    if (!isModelReady) {
+      const message =
+        Platform.OS === 'android'
+          ? 'The native pose detector is not ready yet. Rebuild the Android app and try again.'
+          : 'Real-time pose capture is currently available on Android only.';
+      Alert.alert('Initializing', message);
+      return;
+    }
+
+    void startRecording();
   };
 
-  if (!allGranted) return null;
+  if (!allGranted || !device) return null;
 
   return (
     <View style={styles.container}>
-      <CameraView
+      <Camera
         ref={cameraRef}
         style={StyleSheet.absoluteFill}
-        facing={facing}
-        mode="video"
+        device={device}
+        isActive={isFocused}
+        video
+        audio
+        frameProcessor={frameProcessor}
+        onError={(error) => console.error('[RecordingScreen][Camera]', error)}
       />
 
-      <LinearGradient
-        colors={[colors.gradientTop, 'transparent']}
-        style={styles.topGradient}
-      />
+      <LinearGradient colors={[colors.gradientTop, 'transparent']} style={styles.topGradient} />
+      <LinearGradient colors={['transparent', colors.gradientBottom]} style={styles.bottomGradient} />
 
-      <LinearGradient
-        colors={['transparent', colors.gradientBottom]}
-        style={styles.bottomGradient}
-      />
-
-      <RecordingHeader 
-        onBack={() => navigation.goBack()} 
-        isRecording={state === 'recording'} 
-      />
-
+      <RecordingHeader onBack={() => navigation.goBack()} isRecording={state === 'recording'} />
       <GuideDashedBox />
 
       <SafeAreaView style={styles.overlay}>
         <View style={styles.spacer} />
-        
+
         {state === 'idle' ? (
           <View style={styles.idleContainer}>
+            {!isModelReady && (
+              <Text style={styles.loadingText}>
+                {Platform.OS === 'android'
+                  ? 'Preparing native pose capture...'
+                  : 'Real-time pose capture is Android-only in this build.'}
+              </Text>
+            )}
             <Text style={styles.topicLabel}>TOPIC</Text>
             <Text style={styles.topicTitle}>{topicTitle}</Text>
-            <TouchableOpacity 
-              style={styles.startButton} 
+            <View
+              style={[
+                styles.framingBanner,
+                framingReady ? styles.framingBannerReady : styles.framingBannerWarning,
+              ]}
+            >
+              <Text style={styles.framingBannerText}>{framingMessage}</Text>
+            </View>
+            <TouchableOpacity
+              style={[
+                styles.startButton,
+                framingReady && styles.startButtonReady,
+                !isModelReady && { opacity: 0.5 },
+              ]}
               onPress={handleStart}
+              disabled={!isModelReady}
             >
               <View style={styles.startButtonInner} />
             </TouchableOpacity>
-            <Text style={styles.startHint}>Tap to start</Text>
+            <Text style={[styles.startHint, framingReady && styles.startHintReady]}>
+              {framingReady ? 'Ready to record' : 'Adjust and then start'}
+            </Text>
           </View>
         ) : (
           <View style={styles.activeContainer}>
             <DurationTimer seconds={elapsedSeconds} />
+            <View
+              style={[
+                styles.framingBanner,
+                framingReady ? styles.framingBannerReady : styles.framingBannerWarning,
+                styles.activeFramingBanner,
+              ]}
+            >
+              <Text style={styles.framingBannerText}>
+                {framingReady ? 'Live pose capture active.' : `Framing warning: ${framingMessage}`}
+              </Text>
+            </View>
             <AudioWaveform />
             <View style={styles.controlsSpacer} />
-            <RecordingControls 
+            <RecordingControls
               state={state}
-              onStop={handleStop}
+              onStop={() => void handleStop()}
               onPause={pauseRecording}
               onResume={resumeRecording}
-              onFlip={flipCamera}
+              onFlip={() => {}}
             />
           </View>
         )}
@@ -242,6 +253,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.sm,
   },
+  startButtonReady: {
+    borderColor: '#34D399',
+    shadowColor: '#34D399',
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 0 },
+  },
   startButtonInner: {
     width: 60,
     height: 60,
@@ -252,6 +270,35 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: fontSize.sm,
     fontFamily: fonts.medium,
+  },
+  startHintReady: {
+    color: '#86EFAC',
+  },
+  framingBanner: {
+    marginBottom: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: 16,
+    maxWidth: '84%',
+  },
+  framingBannerReady: {
+    backgroundColor: 'rgba(34, 197, 94, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(34, 197, 94, 0.55)',
+  },
+  framingBannerWarning: {
+    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.55)',
+  },
+  framingBannerText: {
+    color: colors.textPrimary,
+    fontSize: fontSize.sm,
+    fontFamily: fonts.medium,
+    textAlign: 'center',
+  },
+  activeFramingBanner: {
+    marginBottom: spacing.md,
   },
   activeContainer: {
     alignItems: 'center',
@@ -271,6 +318,12 @@ const styles = StyleSheet.create({
     fontSize: fontSize['4xl'],
     fontFamily: fonts.extraBold,
     letterSpacing: 4,
+  },
+  loadingText: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontFamily: fonts.medium,
+    marginBottom: spacing.md,
   },
 });
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -8,8 +8,9 @@ import * as Progress from 'react-native-progress';
 
 import { colors, fonts, fontSize, spacing, radius } from '../theme';
 import { RootStackParamList } from '../types/navigation';
-import { useVideoUpload, UploadStatus } from '../hooks/useVideoUpload';
+import { useSessionUpload, UploadStatus } from '../hooks/useSessionUpload';
 import { useSessionStore } from '../store/sessionStore';
+import { saveDebugPosePayload } from '../utils/saveDebugPosePayload';
 
 type ProcessingScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Processing'>;
 type ProcessingScreenRouteProp = RouteProp<RootStackParamList, 'Processing'>;
@@ -17,72 +18,106 @@ type ProcessingScreenRouteProp = RouteProp<RootStackParamList, 'Processing'>;
 const ProcessingScreen = () => {
   const navigation = useNavigation<ProcessingScreenNavigationProp>();
   const route = useRoute<ProcessingScreenRouteProp>();
-  const { videoUri } = route.params;
+  const { landmarkPayload, audioUri, localVideoUri } = route.params;
 
-  const { elapsedSeconds, topicTitle } = useSessionStore();
-  const { uploadVideo, status, compPct, upPct, error } = useVideoUpload();
+  const { topicTitle } = useSessionStore();
+  const { uploadSession, status, upPct, error } = useSessionUpload();
 
   const [retryCount, setRetryCount] = useState(0);
   const [slowWarning, setSlowWarning] = useState(false);
+  const [processingError, setProcessingError] = useState<string | null>(null);
 
   useEffect(() => {
-    uploadVideo(videoUri, topicTitle, elapsedSeconds);
-  }, [retryCount]);
+    let cancelled = false;
+
+    const run = async () => {
+      try {
+        setProcessingError(null);
+        console.log('[Processing] Starting upload flow', {
+          totalFrames: landmarkPayload.total_frames,
+          fpsAchieved: landmarkPayload.fps_achieved,
+          durationSeconds: landmarkPayload.duration_seconds,
+          retryCount,
+        });
+
+        if (landmarkPayload.total_frames === 0) {
+          throw new Error('No pose data was captured while recording.');
+        }
+
+        const debugPath = await saveDebugPosePayload(landmarkPayload);
+        if (debugPath) {
+          console.log('[PoseCapture] Saved latest raw payload to:', debugPath);
+        }
+
+        await uploadSession(landmarkPayload, audioUri, topicTitle, localVideoUri);
+      } catch (err: any) {
+        if (cancelled) return;
+        console.error('[Processing] Run failed', err);
+        setProcessingError(err?.message ?? 'Processing failed.');
+      }
+    };
+
+    void run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [audioUri, landmarkPayload, localVideoUri, retryCount, topicTitle, uploadSession]);
 
   useEffect(() => {
     if (status === 'done') {
       navigation.replace('Results');
     }
-  }, [status]);
+  }, [navigation, status]);
 
   useEffect(() => {
-    if (status === 'processing') {
-      const t = setTimeout(() => setSlowWarning(true), 15000);
-      return () => clearTimeout(t);
+    if (status === 'processing' || status === 'uploading') {
+      const timeout = setTimeout(() => setSlowWarning(true), 15000);
+      return () => clearTimeout(timeout);
     }
+
     setSlowWarning(false);
   }, [status]);
 
   const handleRetry = () => {
     if (retryCount < 3) {
-      setRetryCount(c => c + 1);
-    } else {
-      // Logic for contacting support
+      setRetryCount((count) => count + 1);
     }
   };
 
-  const getStatusConfig = (status: UploadStatus) => {
-    switch (status) {
-      case 'compressing':
-        return {
-          title: "Optimising Video",
-          subtitle: "Compressing for fast analysis...",
-          progress: compPct / 100,
-          showBar: true,
-        };
+  const getStatusConfig = (currentStatus: UploadStatus) => {
+    if (processingError) {
+      return {
+        title: 'Something went wrong',
+        subtitle: processingError,
+        showError: true,
+      };
+    }
+
+    switch (currentStatus) {
       case 'uploading':
         return {
-          title: "Uploading Recording",
+          title: 'Uploading Session',
           subtitle: `${upPct}% uploaded`,
           progress: upPct / 100,
           showBar: true,
         };
       case 'processing':
         return {
-          title: "Analysing Your Session",
-          subtitle: "Detecting pose & speech patterns...",
+          title: 'Analysing Your Session',
+          subtitle: 'Analysing pose & speech patterns...',
           showLottie: true,
         };
       case 'error':
         return {
-          title: "Something went wrong",
-          subtitle: error || "Analysis failed. Please try again.",
+          title: 'Something went wrong',
+          subtitle: error || 'Analysis failed. Please try again.',
           showError: true,
         };
       default:
         return {
-          title: "Preparing...",
-          subtitle: "Wait a moment",
+          title: 'Preparing Upload',
+          subtitle: 'Finalizing your recording data',
         };
     }
   };
@@ -124,19 +159,21 @@ const ProcessingScreen = () => {
           </View>
         )}
 
-        {slowWarning && status === 'processing' && (
+        {slowWarning && (status === 'processing' || status === 'uploading') && (
           <View style={styles.warningBox}>
             <MaterialIcons name="info-outline" size={16} color={colors.textSecondary} />
             <Text style={styles.warningText}>
-              Waking up the analysis server — this may take a moment.
+              {status === 'processing'
+                ? 'Waking up the analysis server — this may take a moment.'
+                : 'Uploading your recording data — this may take a moment.'}
             </Text>
           </View>
         )}
 
-        {status === 'error' && (
+        {(status === 'error' || processingError) && (
           <View style={styles.errorActions}>
-            <TouchableOpacity 
-              style={styles.retryButton} 
+            <TouchableOpacity
+              style={styles.retryButton}
               onPress={handleRetry}
               disabled={retryCount >= 3}
             >
@@ -144,11 +181,8 @@ const ProcessingScreen = () => {
                 {retryCount >= 3 ? 'Contact Support' : 'Try Again'}
               </Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity 
-              onPress={() => navigation.popToTop()} 
-              style={styles.cancelButton}
-            >
+
+            <TouchableOpacity onPress={() => navigation.popToTop()} style={styles.cancelButton}>
               <Text style={styles.cancelButtonText}>Back to Dashboard</Text>
             </TouchableOpacity>
           </View>

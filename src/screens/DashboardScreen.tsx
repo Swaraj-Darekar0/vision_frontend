@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, Modal, TouchableWithoutFeedback } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, Modal, TouchableWithoutFeedback, Platform } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -22,8 +22,8 @@ import { useStreakStore } from '../store/streakStore';
 type DashboardNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Dashboard'>;
 
 const DEFAULT_TOPIC = {
-  title:              'Leadership Under Pressure',
-  durationHint:       'Duration: 1 minute minimum',
+  title: 'Leadership Under Pressure',
+  durationHint: 'Duration: 1 minute minimum',
   minDurationSeconds: 60,
 };
 
@@ -31,54 +31,52 @@ const DashboardScreen = () => {
   const navigation = useNavigation<DashboardNavigationProp>();
   const { user, updateDisplayName, logout } = useAuthStore();
   const { sessions, milestoneTip, milestoneTipSkill, refresh, dismissMilestoneTip } = useStreakStore();
-  
+
   const [latestSession, setLatestSession] = useState<SessionListEntry | null>(null);
   const [todayTopic, setTodayTopic] = useState(DEFAULT_TOPIC);
-  
   const [showNameModal, setShowNameModal] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [wasOffline, setWasOffline] = useState(false);
 
   useEffect(() => {
-    // Check for missing display name on mount
     if (user && !user.display_name) {
       setShowNameModal(true);
     }
   }, [user]);
 
   useEffect(() => {
-    // Listen for network connectivity changes
-    const unsubscribe = NetInfo.addEventListener(state => {
+    const unsubscribe = NetInfo.addEventListener((state) => {
       const isConnected = state.isConnected ?? false;
-      
+
       if (isConnected && wasOffline && user?.id) {
-        // Just came back online, sync sessions from cloud
-        syncSessionsFromCloud(user.id).then(() => {
-          refresh(user.id);
-        }).catch((err) => {
-          console.error('[Dashboard] Auto-sync failed:', err);
-        });
+        syncSessionsFromCloud(user.id)
+          .then(() => {
+            refresh(user.id);
+          })
+          .catch((err) => {
+            console.error('[Dashboard] Auto-sync failed:', err);
+          });
       }
-      
+
       setWasOffline(!isConnected);
     });
 
     return unsubscribe;
-  }, [user?.id, wasOffline, refresh]);
+  }, [refresh, user?.id, wasOffline]);
 
   useFocusEffect(
     useCallback(() => {
       if (user?.id) {
-        // Sync from cloud and refresh streak data
-        syncSessionsFromCloud(user.id).then(() => {
-          refresh(user.id);
-        }).catch((err) => {
-          console.error('[Dashboard] Sync failed:', err);
-          // Still refresh with local data
-          refresh(user.id);
-        });
+        syncSessionsFromCloud(user.id)
+          .then(() => {
+            refresh(user.id);
+          })
+          .catch((err) => {
+            console.error('[Dashboard] Sync failed:', err);
+            refresh(user.id);
+          });
       }
-      
+
       const loadData = async () => {
         if (!user?.id) return;
         const currentSessions = await getRecentSessions(user.id, 8);
@@ -86,7 +84,6 @@ const DashboardScreen = () => {
           const latest = currentSessions[0];
           setLatestSession(latest);
 
-          // Fetch suggested topic from latest session detail
           try {
             const detail = await getSessionDetail(user.id, latest.sessionId);
             if (detail?.llm_feedback?.suggest_next_presentation_topics) {
@@ -110,7 +107,7 @@ const DashboardScreen = () => {
         }
       };
 
-      loadData();
+      void loadData();
     }, [refresh, user?.id])
   );
 
@@ -126,14 +123,12 @@ const DashboardScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header with Profile Icon */}
-      
       <View style={styles.headerContainer}>
         <View>
           <Text style={styles.title}>Dashboard</Text>
           <Text style={styles.subtitle}>Overview</Text>
         </View>
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={() => setShowProfileMenu(true)}
           style={styles.profileButton}
           accessibilityRole="button"
@@ -143,10 +138,7 @@ const DashboardScreen = () => {
         </TouchableOpacity>
       </View>
 
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {milestoneTip && milestoneTipSkill && (
           <StreakMilestoneTip
             tip={milestoneTip}
@@ -157,35 +149,38 @@ const DashboardScreen = () => {
 
         <PendingQueueBanner />
 
-        <PerformanceGrid 
-          overallScore={latestSession?.overallScore} 
-          confidenceScore={latestSession?.confidenceScore} 
+        <PerformanceGrid
+          overallScore={latestSession?.overallScore}
+          confidenceScore={latestSession?.confidenceScore}
         />
 
-        <StreakSection 
-          sessions={sessions} 
-          onPress={() => navigation.navigate('SessionHistory')} 
-        />
+        <StreakSection sessions={sessions} onPress={() => navigation.navigate('SessionHistory')} />
 
         <QuoteCard />
+
+        <View style={styles.modelInfoContainer}>
+          <MaterialIcons name="bolt" size={18} color={colors.primary} />
+          <Text style={styles.modelInfoText}>
+            {Platform.OS === 'android'
+              ? 'Android build uses native ML Kit pose capture in real time.'
+              : 'Real-time pose capture is currently enabled on Android builds.'}
+          </Text>
+        </View>
 
         <TopicCard
           title={todayTopic.title}
           durationHint={todayTopic.durationHint}
-          onStart={() => navigation.navigate('Recording', {
-            topicTitle:         todayTopic.title,
-            minDurationSeconds: todayTopic.minDurationSeconds,
-          })}
+          onStart={() =>
+            navigation.navigate('Recording', {
+              topicTitle: todayTopic.title,
+              minDurationSeconds: todayTopic.minDurationSeconds,
+            })
+          }
         />
       </ScrollView>
 
-      {/* Name Input Modal */}
-      <NameInputModal 
-        visible={showNameModal} 
-        onSubmit={handleNameSubmit} 
-      />
+      <NameInputModal visible={showNameModal} onSubmit={handleNameSubmit} />
 
-      {/* Profile Menu Modal */}
       <Modal
         visible={showProfileMenu}
         transparent
@@ -199,10 +194,7 @@ const DashboardScreen = () => {
                 {user?.display_name || user?.email || 'User'}
               </Text>
               <View style={styles.menuDivider} />
-              <TouchableOpacity 
-                style={styles.menuItem} 
-                onPress={handleLogout}
-              >
+              <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
                 <MaterialIcons name="logout" size={20} color={colors.recordingRed} />
                 <Text style={styles.menuItemText}>Sign Out</Text>
               </TouchableOpacity>
@@ -246,18 +238,12 @@ const styles = StyleSheet.create({
   profileButton: {
     padding: spacing.xs,
   },
-  spacer: {
-    flex: 1,
-    minHeight: spacing.xl,
-  },
-  
-  // Menu Styles
   menuOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-start',
     alignItems: 'flex-end',
-    paddingTop: 60, // Adjust based on header height
+    paddingTop: 60,
     paddingRight: spacing.base,
   },
   menuContainer: {
@@ -265,7 +251,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     padding: spacing.md,
     minWidth: 180,
-    shadowColor: "#000",
+    shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 2,
@@ -291,10 +277,27 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   menuItemText: {
-    color: colors.recordingRed, // Use red for logout
+    color: colors.recordingRed,
     fontSize: fontSize.md,
     fontFamily: fonts.medium,
     marginLeft: spacing.sm,
+  },
+  modelInfoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.surfaceDark,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.borderMuted,
+  },
+  modelInfoText: {
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
+    fontFamily: fonts.medium,
+    flex: 1,
   },
 });
 

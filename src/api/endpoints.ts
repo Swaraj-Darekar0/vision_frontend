@@ -1,5 +1,5 @@
 // src/api/endpoints.ts
-export const BASE_URL = 'http://10.128.230.52:5000';
+export const BASE_URL = 'http://192.168.0.102:5000';
 
 export const ENDPOINTS = {
   analyzeFullVideo: `${BASE_URL}/analyze/full`,
