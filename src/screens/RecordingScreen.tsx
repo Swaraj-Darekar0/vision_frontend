@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { View, StyleSheet, Alert, SafeAreaView, TouchableOpacity, Text, Platform } from 'react-native';
 import { Camera } from 'react-native-vision-camera';
 import { useNavigation, useRoute, RouteProp, useIsFocused } from '@react-navigation/native';
@@ -24,7 +24,25 @@ const RecordingScreen = () => {
   const navigation = useNavigation<RecordingScreenNavigationProp>();
   const route = useRoute<RecordingScreenRouteProp>();
   const isFocused = useIsFocused();
-  const { topicTitle, minDurationSeconds = 60 } = route.params;
+  const {
+    topicTitle,
+    minDurationSeconds = 60,
+    isDiagnostic = false,
+    planDay,
+    planSession,
+    targetSkill,
+    isRecovery,
+    weekNumber,
+  } = route.params;
+  const autoStopTriggeredRef = useRef(false);
+  const isTimedPlanSession = useMemo(
+    () =>
+      !isDiagnostic &&
+      typeof planDay === 'number' &&
+      typeof planSession === 'number' &&
+      minDurationSeconds > 0,
+    [isDiagnostic, minDurationSeconds, planDay, planSession],
+  );
 
   const { allGranted, requestAll } = usePermissions();
   const {
@@ -52,6 +70,12 @@ const RecordingScreen = () => {
     }
   }, [allGranted, navigation, requestAll]);
 
+  useEffect(() => {
+    if (state === 'idle') {
+      autoStopTriggeredRef.current = false;
+    }
+  }, [state]);
+
   const doStop = async () => {
     const { landmarkPayload, audioUri, localVideoUri } = await stopRecording();
 
@@ -73,8 +97,26 @@ const RecordingScreen = () => {
       return;
     }
 
-    setRecordingMeta(landmarkPayload.duration_seconds, topicTitle);
-    navigation.replace('Processing', { landmarkPayload, audioUri, localVideoUri });
+    setRecordingMeta(landmarkPayload.duration_seconds, topicTitle, {
+      isDiagnostic,
+      planDay,
+      planSession,
+      targetSkill,
+      weekNumber,
+    });
+    navigation.replace('Processing', {
+      capture: {
+        landmarkPayload,
+        recordedMediaUri: audioUri,
+        localVideoUri,
+      },
+      isDiagnostic,
+      planDay,
+      planSession,
+      targetSkill,
+      isRecovery,
+      weekNumber,
+    });
   };
 
   const handleStop = async () => {
@@ -104,6 +146,27 @@ const RecordingScreen = () => {
 
     void startRecording();
   };
+
+  useEffect(() => {
+    if (!isTimedPlanSession) {
+      return;
+    }
+
+    if (state !== 'recording') {
+      return;
+    }
+
+    if (elapsedSeconds < minDurationSeconds) {
+      return;
+    }
+
+    if (autoStopTriggeredRef.current) {
+      return;
+    }
+
+    autoStopTriggeredRef.current = true;
+    void doStop();
+  }, [doStop, elapsedSeconds, isTimedPlanSession, minDurationSeconds, state]);
 
   if (!allGranted || !device) return null;
 
@@ -165,7 +228,10 @@ const RecordingScreen = () => {
           </View>
         ) : (
           <View style={styles.activeContainer}>
-            <DurationTimer seconds={elapsedSeconds} />
+            <DurationTimer
+              seconds={elapsedSeconds}
+              targetSeconds={isTimedPlanSession ? minDurationSeconds : undefined}
+            />
             <View
               style={[
                 styles.framingBanner,
@@ -185,7 +251,13 @@ const RecordingScreen = () => {
               onPause={pauseRecording}
               onResume={resumeRecording}
               onFlip={() => {}}
+              hideStopButton={isTimedPlanSession}
             />
+            {isTimedPlanSession && (
+              <Text style={styles.autoStopHint}>
+                This session will end automatically when the assigned duration is complete.
+              </Text>
+            )}
           </View>
         )}
       </SafeAreaView>
@@ -324,6 +396,14 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     fontFamily: fonts.medium,
     marginBottom: spacing.md,
+  },
+  autoStopHint: {
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
+    fontFamily: fonts.medium,
+    textAlign: 'center',
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.xl,
   },
 });
 

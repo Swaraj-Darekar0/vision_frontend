@@ -6,7 +6,9 @@ export interface TimestampEvent {
 }
 
 export interface TimestampedMoment {
-  time: string;   // 'MM:SS'
+  event: string;
+  start: string;   // 'MM:SS'
+  end: string;     // 'MM:SS'
   note: string;
 }
 
@@ -41,21 +43,23 @@ export interface DeltaEntry {
   label:  DeltaLabel;
 }
 
+export interface ProgressDeltas {
+  overall: DeltaEntry;
+  confidence: DeltaEntry;
+  clarity: DeltaEntry;
+  engagement: DeltaEntry;
+  nervousness: DeltaEntry;
+  behavioral: {
+    filler_reduction: DeltaEntry;
+    pause_optimization: DeltaEntry;
+    posture_stability: DeltaEntry;
+  };
+}
+
 export interface ProgressComparison {
   headline:         string;
   is_first_session: boolean;
-  deltas: {
-    overall:     DeltaEntry;
-    confidence:  DeltaEntry;
-    clarity:     DeltaEntry;
-    engagement:  DeltaEntry;
-    nervousness: DeltaEntry;
-    behavioral: {
-      filler_reduction:   DeltaEntry;
-      pause_optimization: DeltaEntry;
-      posture_stability:  DeltaEntry;
-    };
-  };
+  deltas: Partial<ProgressDeltas>;
 }
 
 export interface AudioMetrics {
@@ -94,6 +98,12 @@ export interface SessionMetadata {
   user_id:          string;   // UUID
   topic_title:      string;    // NEW
   duration_label:   string;    // NEW
+  week_number?:     number | null;
+  plan_day?:        number | null;
+  plan_session_num?: number | null;
+  is_recovery?:     boolean;
+  is_diagnostic?:   boolean;
+  target_skill?:    string | null;
 }
 
 export interface EvaluationResult {

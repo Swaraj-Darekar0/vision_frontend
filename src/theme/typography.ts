@@ -1,9 +1,10 @@
 export const fonts = {
-  regular:   'Inter_400Regular',
-  medium:    'Inter_500Medium',
-  semiBold:  'Inter_600SemiBold',
-  bold:      'Inter_700Bold',
-  extraBold: 'Inter_800ExtraBold',
+  regular: 'Grift-Bold',
+  medium: 'Grift-Bold',
+  semiBold: 'Grift-Bold',
+  bold: 'Grift-Black',
+  extraBold: 'Grift-Black',
+  numeric: 'Garnetta-Exfontceb7',
 };
 
 export const fontSize = {

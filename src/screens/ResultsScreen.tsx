@@ -5,6 +5,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialIcons } from '@expo/vector-icons';
 import ViewShot from 'react-native-view-shot';
 import dayjs from 'dayjs';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, fonts, fontSize, spacing, radius } from '../theme';
 import { RootStackParamList } from '../types/navigation';
@@ -13,15 +14,30 @@ import { ResultsView } from '../components/ui/ResultsView';
 import { SessionActivityCard } from '../components/ui/SessionActivityCard';
 import { formatDurationLabel } from '../utils/formatTime';
 import { captureAndShareCard } from '../utils/shareCard';
+import { usePlanStore } from '../store/planStore';
+import { useAuthStore } from '../store/authStore';
 
 type ResultsScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Results'>;
 
 const ResultsScreen = () => {
   const navigation = useNavigation<ResultsScreenNavigationProp>();
-  const { latestResult, elapsedSeconds, topicTitle, localVideoUri, clear } = useSessionStore();
+  const { latestResult, elapsedSeconds, topicTitle, localVideoUri, clear, planDay, planSession } = useSessionStore();
+  const { user } = useAuthStore();
+  const { markTopicComplete } = usePlanStore();
+  const insets = useSafeAreaInsets();
   
   const cardRef = useRef<ViewShot>(null);
   const [isSharing, setIsSharing] = useState(false);
+
+  React.useEffect(() => {
+    if (!user?.id || !latestResult || !planDay || !planSession) return;
+
+    void markTopicComplete(user.id, {
+      day: planDay,
+      session: planSession,
+      sessionId: latestResult.session_metadata.session_id,
+    });
+  }, [latestResult, markTopicComplete, planDay, planSession, user?.id]);
 
   if (!latestResult) {
     return (
@@ -72,7 +88,7 @@ const ResultsScreen = () => {
         </ViewShot>
       </View>
 
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, spacing.sm) + spacing.xs }]}>
         <TouchableOpacity onPress={handleFinish} style={styles.headerIcon}>
           <MaterialIcons name="close" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
@@ -108,7 +124,7 @@ const ResultsScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.backgroundDark,
+    backgroundColor: 'transparent',
   },
   offscreenContainer: {
     position: 'absolute',
@@ -119,9 +135,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: spacing.md,
     paddingHorizontal: spacing.base,
-    paddingVertical: spacing.md,
+    paddingBottom: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderMuted,
   },
@@ -160,7 +175,7 @@ const styles = StyleSheet.create({
   },
   footer: {
     padding: spacing.base,
-    backgroundColor: colors.backgroundDark,
+    backgroundColor: 'rgba(0, 0, 0, 0.58)',
     borderTopWidth: 1,
     borderTopColor: colors.borderMuted,
   },

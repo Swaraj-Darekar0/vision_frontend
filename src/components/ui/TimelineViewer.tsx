@@ -1,7 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View, Text, TouchableOpacity, StyleSheet,
-} from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { MaterialIcons } from '@expo/vector-icons';
 import { TimelineClip } from '../../utils/mergeTimelineEvents';
@@ -9,50 +7,78 @@ import { colors } from '../../theme/colors';
 import { fonts, fontSize } from '../../theme/typography';
 import { spacing } from '../../theme/spacing';
 
-// Event type → color + icon mapping
-const EVENT_META: Record<string, { color: string; icon: string; label: string }> = {
-  rapid_speech_segment:    { color: '#F59E0B', icon: 'speed',        label: 'Fast pace'   },
-  monotone_segment:        { color: '#3B8BD4', icon: 'equalizer',    label: 'Monotone'    },
-  vocal_instability_spike: { color: '#EF4444', icon: 'mic_off',      label: 'Instability' },
-  excessive_pause:         { color: '#8B5CF6', icon: 'pause_circle',  label: 'Long pause'  },
+const EVENT_META: Record<string, { color: string; icon: string }> = {
+  rapid_speech_segment: { color: '#F59E0B', icon: 'speed' },
+  monotone_segment: { color: '#3B8BD4', icon: 'equalizer' },
+  vocal_instability_spike: { color: '#EF4444', icon: 'mic-off' },
+  excessive_pause: { color: '#8B5CF6', icon: 'pause-circle-outline' },
+  high_fumble_spike: { color: '#EF4444', icon: 'warning-amber' },
+  review_moment: { color: '#1152D4', icon: 'insights' },
 };
 
+function resolveEventMeta(eventType: string) {
+  const direct = EVENT_META[eventType];
+  if (direct) return direct;
+
+  const normalized = eventType.toLowerCase();
+  if (normalized.includes('pause')) return EVENT_META.excessive_pause;
+  if (normalized.includes('fumble')) return EVENT_META.high_fumble_spike;
+  if (normalized.includes('rapid') || normalized.includes('speed')) return EVENT_META.rapid_speech_segment;
+  if (normalized.includes('monotone')) return EVENT_META.monotone_segment;
+  if (normalized.includes('instability')) return EVENT_META.vocal_instability_spike;
+
+  return EVENT_META.review_moment;
+}
+
+function humanizeEventLabel(eventType: string) {
+  return eventType
+    .split('+')
+    .map((part) =>
+      part
+        .trim()
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, (char) => char.toUpperCase()),
+    )
+    .join(' + ');
+}
+
+function formatSecondsToMMSS(seconds: number) {
+  const mm = Math.floor(seconds / 60).toString().padStart(2, '0');
+  const ss = Math.floor(seconds % 60).toString().padStart(2, '0');
+  return `${mm}:${ss}`;
+}
+
 interface Props {
-  clips:         TimelineClip[];
-  localVideoUri: string | null;   // null = text-only mode (old sessions)
+  clips: TimelineClip[];
+  localVideoUri: string | null;
 }
 
 export const TimelineViewer: React.FC<Props> = ({ clips, localVideoUri }) => {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
-  
-  // Initialize the video player
-  const player = useVideoPlayer(localVideoUri || '', (player) => {
-    player.loop = false;
-    player.muted = false;
+
+  const player = useVideoPlayer(localVideoUri || '', (instance) => {
+    instance.loop = false;
+    instance.muted = false;
   });
 
   const handleRowTap = (clip: TimelineClip) => {
     if (!localVideoUri) return;
 
     if (expandedIndex === clip.index) {
-      // Collapse
       player.pause();
       setExpandedIndex(null);
       return;
     }
 
     setExpandedIndex(clip.index);
-
-    // Seek to clip start and play
     player.seekBy(clip.timeStart - player.currentTime);
     player.play();
   };
 
-  // Monitor playback to pause at clip end
   useEffect(() => {
     if (expandedIndex === null) return;
-    
-    const clip = clips.find(c => c.index === expandedIndex);
+
+    const clip = clips.find((entry) => entry.index === expandedIndex);
     if (!clip) return;
 
     const subscription = player.addListener('timeUpdate', (event) => {
@@ -62,83 +88,87 @@ export const TimelineViewer: React.FC<Props> = ({ clips, localVideoUri }) => {
     });
 
     return () => subscription.remove();
-  }, [expandedIndex, player, clips]);
+  }, [clips, expandedIndex, player]);
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <MaterialIcons name="timeline" size={18} color={colors.primary} />
         <Text style={styles.headerText}>Feedback Timeline</Text>
-        {!localVideoUri && (
-          <Text style={styles.textOnlyBadge}>text only</Text>
-        )}
+        {!localVideoUri ? <Text style={styles.textOnlyBadge}>text only</Text> : null}
       </View>
 
-      {clips.map((clip) => {
-        const meta   = EVENT_META[clip.eventType] ?? EVENT_META['rapid_speech_segment'];
+      {clips.map((clip, index) => {
+        const meta = resolveEventMeta(clip.eventType);
         const isOpen = expandedIndex === clip.index;
+        const isLast = index === clips.length - 1;
 
         return (
-          <View key={clip.index} style={styles.row}>
-            {/* Timeline spine */}
+          <View key={clip.index} style={[styles.row, isLast && styles.rowLast]}>
             <View style={styles.spineCol}>
               <View style={[styles.dot, { backgroundColor: meta.color }]} />
-              {clip.index < clips.length - 1 && <View style={styles.spineLine} />}
+              {!isLast ? <View style={styles.spineLine} /> : null}
             </View>
 
-            {/* Content */}
             <View style={styles.contentCol}>
-              <TouchableOpacity
-                style={styles.rowHeader}
-                onPress={() => handleRowTap(clip)}
-                disabled={!localVideoUri}
-                activeOpacity={localVideoUri ? 0.7 : 1}
-              >
-                {/* Time + event badge */}
+              <View style={styles.rowHeader}>
                 <View style={styles.rowMeta}>
                   <Text style={styles.timeLabel}>{clip.timeLabel}</Text>
-                  <View style={[styles.eventBadge, { backgroundColor: meta.color + '22',
-                    borderColor: meta.color + '55' }]}>
-                    <MaterialIcons name={meta.icon as any} size={11} color={meta.color} />
-                    <Text style={[styles.eventLabel, { color: meta.color }]}>{meta.label}</Text>
-                  </View>
+                  {/* <View
+                    style={[
+                      styles.eventBadge,
+                      {
+                        backgroundColor: meta.color + '22',
+                        borderColor: meta.color + '55',
+                      },
+                    ]}
+                  >
+                    <MaterialIcons name={meta.icon as any} size={12} color={meta.color} />
+                    <Text style={[styles.eventLabel, { color: meta.color }]}>
+                      {humanizeEventLabel(clip.eventType)}
+                    </Text>
+                  </View> */}
+                                  {localVideoUri ? (
+                  <TouchableOpacity
+                    style={[styles.playButton, isOpen && styles.playButtonActive]}
+                    onPress={() => handleRowTap(clip)}
+                    activeOpacity={0.8}
+                  >
+                    <MaterialIcons
+                      name={isOpen ? 'pause-circle-outline' : 'play-circle-outline'}
+                      size={22}
+                      color={isOpen ? colors.primary : colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                ) : null}
                 </View>
 
-                {/* Play indicator — only when video available */}
-                {localVideoUri && (
-                  <MaterialIcons
-                    name={isOpen ? 'expand-less' : 'play-circle-outline'}
-                    size={20}
-                    color={isOpen ? colors.primary : colors.textMuted}
-                  />
-                )}
-              </TouchableOpacity>
 
-              {/* Coach note — always visible */}
+              </View>
+
               <Text style={styles.note}>{clip.coachNote}</Text>
 
-              {/* Inline video player — only when expanded and video exists */}
-              {isOpen && localVideoUri && (
+              {isOpen && localVideoUri ? (
                 <View style={styles.playerWrapper}>
-                  <VideoView
-                    player={player}
-                    style={styles.player}
-                    contentFit="contain"
-                    allowsFullscreen={false}
-                    allowsPictureInPicture={false}
-                  />
-                  {/* Scrub bar showing clip position within full video */}
+                  <VideoView player={player} style={styles.player} contentFit="contain" />
                   <View style={styles.scrubBar}>
-                    <View style={[styles.scrubFill, {
-                      marginLeft: player.duration ? `${(clip.timeStart / player.duration) * 100}%` : 0,
-                      width:      player.duration ? `${((clip.timeEnd - clip.timeStart) / player.duration) * 100}%` : 0,
-                    }]} />
+                    <View
+                      style={[
+                        styles.scrubFill,
+                        {
+                          marginLeft: player.duration ? `${(clip.timeStart / player.duration) * 100}%` : 0,
+                          width: player.duration
+                            ? `${((clip.timeEnd - clip.timeStart) / player.duration) * 100}%`
+                            : 0,
+                        },
+                      ]}
+                    />
                   </View>
                   <Text style={styles.clipDuration}>
-                    {clip.timeLabel} — {formatSecondsToMMSS(clip.timeEnd)}
+                    {clip.timeLabel} - {formatSecondsToMMSS(clip.timeEnd)}
                   </Text>
                 </View>
-              )}
+              ) : null}
             </View>
           </View>
         );
@@ -147,17 +177,11 @@ export const TimelineViewer: React.FC<Props> = ({ clips, localVideoUri }) => {
   );
 };
 
-function formatSecondsToMMSS(s: number): string {
-  const mm = Math.floor(s / 60).toString().padStart(2, '0');
-  const ss = Math.floor(s % 60).toString().padStart(2, '0');
-  return `${mm}:${ss}`;
-}
-
 const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.surfaceDark,
-    borderRadius: 16,
-    padding: spacing.base,
+    borderRadius: 24,
+    padding: spacing.lg,
     borderWidth: 0.5,
     borderColor: colors.borderDark,
     marginVertical: spacing.md,
@@ -166,7 +190,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    marginBottom: spacing.base,
+    marginBottom: spacing.lg,
   },
   headerText: {
     fontFamily: fonts.bold,
@@ -187,72 +211,96 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 4,
+    gap: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  rowLast: {
+    marginBottom: 0,
   },
   spineCol: {
+    width: 16,
     alignItems: 'center',
-    width: 12,
-    paddingTop: 4,
+    paddingTop: 6,
   },
   dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
   },
   spineLine: {
     flex: 1,
     width: 1.5,
     backgroundColor: colors.borderMuted,
-    marginTop: 4,
-    marginBottom: -4,
+    marginTop: 6,
+    marginBottom: -8,
   },
   contentCol: {
     flex: 1,
-    paddingBottom: spacing.base,
+    paddingBottom: spacing.lg,
   },
   rowHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: 6,
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
   },
   rowMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    flex: 1,
+    gap: spacing.xs,
+    minWidth: 0,
   },
   timeLabel: {
-    fontFamily: fonts.medium,
-    fontSize: fontSize.sm,
+    fontFamily: fonts.semiBold,
+    fontSize: fontSize.md,
     color: colors.textPrimary,
     fontVariant: ['tabular-nums'],
   },
   eventBadge: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 999,
-    borderWidth: 0.5,
+    alignItems: 'flex-start',
+    alignSelf: 'stretch',
+    gap: 6,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: 1,
   },
   eventLabel: {
     fontFamily: fonts.medium,
-    fontSize: 10,
+    fontSize: fontSize.xs,
+    lineHeight: 16,
+    flex: 1,
+  },
+  playButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    borderColor: colors.borderMuted,
+    backgroundColor: colors.surfaceElevated,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    marginTop: 2,
+  },
+  playButtonActive: {
+    borderColor: colors.primary + '66',
+    backgroundColor: colors.primary + '12',
   },
   note: {
     fontFamily: fonts.regular,
     fontSize: fontSize.sm,
     color: colors.textSecondary,
-    lineHeight: 20,
-    marginBottom: 8,
+    lineHeight: 24,
+    paddingRight: spacing.xs,
+    marginBottom: spacing.sm,
   },
   playerWrapper: {
-    borderRadius: 12,
+    borderRadius: 14,
     overflow: 'hidden',
     backgroundColor: '#000',
-    marginTop: 4,
+    marginTop: spacing.xs,
   },
   player: {
     width: '100%',

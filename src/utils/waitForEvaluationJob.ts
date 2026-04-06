@@ -3,7 +3,7 @@ import { ENDPOINTS } from '../api/endpoints';
 import { EvaluationResult, JobResponse } from '../types/api';
 import { normalizeEvaluationResult } from './normalizeEvaluationResult';
 
-const POLL_INTERVAL_MS = 2000;
+const POLL_INTERVAL_MS = 5000;
 const MAX_POLL_ATTEMPTS = 180;
 
 function sleep(ms: number): Promise<void> {

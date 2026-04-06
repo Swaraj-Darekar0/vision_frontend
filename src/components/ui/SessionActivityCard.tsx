@@ -4,6 +4,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { EvaluationResult } from '../../types/api';
 import { SHARE_CARD } from '../../theme/constants';
+import { fonts } from '../../theme';
 import { toPercent } from '../../utils/toPercent';
 
 interface Props {
@@ -89,33 +90,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   appName: {
-    fontFamily: 'Inter_700Bold',
+    fontFamily: fonts.bold,
     fontSize: 42,
     color: '#FFFFFF',
     letterSpacing: -1,
   },
   headerRight: {
-    fontFamily: 'Inter_400Regular',
+    fontFamily: fonts.regular,
     fontSize: 32,
     color: '#555555',
   },
   divider: {
     height: 1,
-    backgroundColor: '#222222',
+    backgroundColor: '#111111',
   },
   scoreBlock: {
     alignItems: 'center',
     paddingVertical: 20,
   },
   scoreLabel: {
-    fontFamily: 'Inter_500Medium',
+    fontFamily: fonts.regular,
     fontSize: 28,
     color: '#666666',
     letterSpacing: 4,
     marginBottom: 16,
   },
   scoreValue: {
-    fontFamily: 'Inter_800ExtraBold',
+    fontFamily: fonts.numeric,
     fontSize: 200,
     color: '#FFFFFF',
     lineHeight: 200,
@@ -128,27 +129,27 @@ const styles = StyleSheet.create({
   },
   metricPill: {
     alignItems: 'center',
-    backgroundColor: '#161616',
+    backgroundColor: '#050505',
     borderRadius: 20,
     paddingHorizontal: 30,
     paddingVertical: 20,
     borderWidth: 1,
-    borderColor: '#2A2A2A',
+    borderColor: '#111111',
     minWidth: 200,
   },
   metricValue: {
-    fontFamily: 'Inter_700Bold',
+    fontFamily: fonts.numeric,
     fontSize: 52,
     color: '#FFFFFF',
     marginBottom: 8,
   },
   metricLabel: {
-    fontFamily: 'Inter_400Regular',
+    fontFamily: fonts.regular,
     fontSize: 28,
     color: '#888888',
   },
   quote: {
-    fontFamily: 'Inter_400Regular',
+    fontFamily: fonts.regular,
     fontSize: 38,
     color: '#AAAAAA',
     lineHeight: 56,
@@ -159,13 +160,13 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   footerTopic: {
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: fonts.bold,
     fontSize: 40,
     color: '#FFFFFF',
     letterSpacing: -0.5,
   },
   footerMeta: {
-    fontFamily: 'Inter_400Regular',
+    fontFamily: fonts.regular,
     fontSize: 30,
     color: '#555555',
   },

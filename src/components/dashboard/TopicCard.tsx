@@ -5,11 +5,12 @@ import { Card } from '../ui/Card';
 
 interface TopicCardProps {
   title: string;
+  durationMinutes?: number;
   durationHint: string;
   onStart: () => void;
 }
 
-export const TopicCard: React.FC<TopicCardProps> = ({ title, durationHint, onStart }) => (
+export const TopicCard: React.FC<TopicCardProps> = ({ title, durationMinutes, durationHint, onStart }) => (
   <Card style={styles.container}>
     <Text style={styles.overline}>TODAY'S TOPIC</Text>
     <Text 
@@ -20,6 +21,11 @@ export const TopicCard: React.FC<TopicCardProps> = ({ title, durationHint, onSta
     >
       {title}
     </Text>
+    {typeof durationMinutes === 'number' && (
+      <View style={styles.durationPill}>
+        <Text style={styles.durationPillText}>{durationMinutes} min session</Text>
+      </View>
+    )}
     <View style={styles.hintRow}>
       <View style={styles.dot} />
       <Text style={styles.hint}>{durationHint}</Text>
@@ -54,6 +60,19 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
     marginBottom: spacing.sm,
     width: '100%',
+  },
+  durationPill: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.primaryTint,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    marginBottom: spacing.md,
+  },
+  durationPillText: {
+    color: colors.primary,
+    fontSize: fontSize.sm,
+    fontFamily: fonts.semiBold,
   },
   hintRow: {
     flexDirection: 'row',

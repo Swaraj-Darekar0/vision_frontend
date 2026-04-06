@@ -5,12 +5,15 @@ import { formatElapsedSeconds } from '../../utils/formatTime';
 
 interface DurationTimerProps {
   seconds: number;
+  targetSeconds?: number;
 }
 
-export const DurationTimer: React.FC<DurationTimerProps> = ({ seconds }) => (
+export const DurationTimer: React.FC<DurationTimerProps> = ({ seconds, targetSeconds }) => (
   <View style={styles.container}>
     <Text style={styles.time}>{formatElapsedSeconds(seconds)}</Text>
-    <Text style={styles.label}>DURATION</Text>
+    <Text style={styles.label}>
+      {targetSeconds ? `AUTO ENDS AT ${formatElapsedSeconds(targetSeconds)}` : 'DURATION'}
+    </Text>
   </View>
 );
 
@@ -22,7 +25,7 @@ const styles = StyleSheet.create({
   time: {
     color: colors.textPrimary,
     fontSize: fontSize.timer,
-    fontFamily: fonts.medium,
+    fontFamily: fonts.numeric,
     fontVariant: ['tabular-nums'],
   },
   label: {

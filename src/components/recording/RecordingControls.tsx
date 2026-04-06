@@ -10,6 +10,7 @@ interface RecordingControlsProps {
   onPause: () => void;
   onResume: () => void;
   onFlip: () => void;
+  hideStopButton?: boolean;
 }
 
 export const RecordingControls: React.FC<RecordingControlsProps> = ({
@@ -18,15 +19,18 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
   onPause,
   onResume,
   onFlip,
+  hideStopButton = false,
 }) => (
   <View style={styles.container}>
     <TouchableOpacity onPress={onFlip} style={styles.secondaryButton}>
       <MaterialIcons name="flip-camera-ios" size={28} color={colors.textPrimary} />
     </TouchableOpacity>
 
-    <TouchableOpacity onPress={onStop} style={styles.stopButton} activeOpacity={0.8}>
-      <View style={styles.stopInner} />
-    </TouchableOpacity>
+    {hideStopButton ? <View style={styles.stopPlaceholder} /> : (
+      <TouchableOpacity onPress={onStop} style={styles.stopButton} activeOpacity={0.8}>
+        <View style={styles.stopInner} />
+      </TouchableOpacity>
+    )}
 
     {state === 'recording' ? (
       <TouchableOpacity onPress={onPause} style={styles.secondaryButton}>
@@ -70,5 +74,9 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 4,
     backgroundColor: colors.recordingRed,
+  },
+  stopPlaceholder: {
+    width: 72,
+    height: 72,
   },
 });

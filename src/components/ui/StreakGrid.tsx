@@ -6,19 +6,18 @@ import { scoreToStreakColor } from '../../utils/scoreToColor';
 
 interface StreakGridProps {
   sessions: SessionListEntry[];
+  totalSquares?: number;
 }
 
-export const StreakGrid: React.FC<StreakGridProps> = ({ sessions }) => {
-  const MAX_SQUARES = 8;
-  const cycleCount =
-    sessions.length === 0 ? 0 : sessions.length % MAX_SQUARES || MAX_SQUARES;
-  const reversedSessions = sessions.slice(0, cycleCount).reverse();
-  const squares = Array.from({ length: MAX_SQUARES });
+export const StreakGrid: React.FC<StreakGridProps> = ({ sessions, totalSquares = 8 }) => {
+  const safeSquareCount = Math.max(0, totalSquares);
+  const visibleSessions = sessions.slice(0, safeSquareCount).reverse();
+  const squares = Array.from({ length: safeSquareCount });
 
   return (
     <View style={styles.container}>
       {squares.map((_, i) => {
-        const session = reversedSessions[i];
+        const session = visibleSessions[i];
         const color = session ? scoreToStreakColor(session.overallScore) : colors.streakEmpty;
         return (
           <View 
@@ -43,5 +42,7 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: 4,
+    borderWidth: 1,
+    borderColor: colors.dashboardBorderFaint,
   },
 });

@@ -4,12 +4,12 @@
     "slug": "vision",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/logo.jpg",
+    "icon": "./assets/images/loginbgg.jpg",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/images/logo.jpg",
+      "image": "./assets/images/logo2.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#00000"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -25,10 +25,10 @@
     "android": {
       "newArchEnabled": false,
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/bg.png",
-        "backgroundImage": "./assets/images/bg.png",
-        "monochromeImage": "./assets/images/bg.png"
+        "backgroundColor": "#000000",
+        "foregroundImage": "./assets/images/loginbgg.jpg",
+        "backgroundImage": "./assets/images/loginbgg.jpg",
+        "monochromeImage": "./assets/images/loginbgg.jpg"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.Vision",

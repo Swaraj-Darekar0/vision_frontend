@@ -1,100 +1,155 @@
-// src/utils/queueDrain.ts
-
 import NetInfo from '@react-native-community/netinfo';
 import * as Notifications from 'expo-notifications';
-import { getQueue, updateQueueEntry, dequeueSession } from '../cache/offlineQueue';
-import { saveSession, getSessionList } from '../cache/sessionCache';
-import { OFFLINE_QUEUE } from '../theme/constants';
+import * as SecureStore from 'expo-secure-store';
 import apiClient from '../api/client';
 import { ENDPOINTS } from '../api/endpoints';
-import * as SecureStore from 'expo-secure-store';
+import {
+  getQueue,
+  updateQueueEntry,
+  dequeueSession,
+  QueuedSession,
+  resetUploadingQueueEntries,
+} from '../cache/offlineQueue';
+import { saveSession, getSessionList } from '../cache/sessionCache';
+import { OFFLINE_QUEUE } from '../theme/constants';
+import { usePlanStore } from '../store/planStore';
 import { normalizeEvaluationResult } from './normalizeEvaluationResult';
 import { waitForEvaluationJob } from './waitForEvaluationJob';
 import { formatDurationLabel } from './formatTime';
+import { buildAnalysisFormData } from '../pipeline/buildAnalysisFormData';
 
-export async function drainOfflineQueue(): Promise<void> {
-  const netState = await NetInfo.fetch();
-  if (!netState.isConnected) return; // No connectivity — do nothing
+export type QueueDrainResult =
+  | 'uploaded'
+  | 'failed'
+  | 'offline'
+  | 'busy'
+  | 'empty'
+  | 'unauthenticated';
 
-  const queue = await getQueue();
-  const pending = queue.filter(
-    (s) => s.status === 'pending' && s.retryCount < OFFLINE_QUEUE.RETRY_MAX,
+let activeDrainPromise: Promise<QueueDrainResult> | null = null;
+
+function getNextDrainableSession(queue: QueuedSession[]) {
+  return queue.find(
+    (session) => session.status === 'pending' && session.retryCount < OFFLINE_QUEUE.RETRY_MAX,
   );
+}
 
-  for (const session of pending) {
-    await updateQueueEntry(session.id, { status: 'uploading' });
+async function uploadQueuedSession(session: QueuedSession): Promise<QueueDrainResult> {
+  const userRaw = await SecureStore.getItemAsync('auth_user');
+  const user = userRaw ? JSON.parse(userRaw) : null;
 
-    try {
-      const userRaw = await SecureStore.getItemAsync('auth_user');
-      const user = userRaw ? JSON.parse(userRaw) : null;
-      if (!user?.id) {
-        // Should not happen if app requires auth, but handle it
-        await updateQueueEntry(session.id, { status: 'failed' });
-        continue;
-      }
+  if (!user?.id) {
+    await updateQueueEntry(session.id, { status: 'failed' });
+    return 'unauthenticated';
+  }
 
-      // Build form
-      const form = new FormData();
-      
-      // @ts-ignore
-      form.append('pose_landmarks', {
-        uri: session.landmarkUri,
-        name: 'landmarks.json',
-        type: 'application/json',
-      });
+  await updateQueueEntry(session.id, { status: 'uploading' });
 
-      // @ts-ignore
-      form.append('audio', {
-        uri: session.audioUri,
-        name: 'audio.m4a',
-        type: 'audio/mp4',
-      });
-
-      form.append('user_id', user.id);
-      form.append('session_id', session.id);
-      form.append('topic_title', session.topicTitle);
-      form.append('duration_label', formatDurationLabel(session.elapsedSeconds));
-      
-      const existingSessions = await getSessionList(user.id);
-      form.append('is_first_session', (existingSessions.length === 0).toString());
-
-      // Upload
-      const response = await apiClient.post(
-        ENDPOINTS.analyzeFullVideo,
-        form,
-        { headers: { 'Content-Type': 'multipart/form-data' } },
-      );
-
-      const result = response.data?.job_id
-        ? await waitForEvaluationJob(response.data.job_id)
-        : normalizeEvaluationResult(response.data);
-
-      // Save result to local cache
-      await saveSession(result, session.elapsedSeconds, session.topicTitle, user.id, null);
-
-      // Send push notification
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: 'Coach\'s Report Ready',
-          body: `Your ${session.topicTitle} session has been analysed.`,
-          data: { sessionId: result.session_metadata.session_id },
+  try {
+    const existingSessions = await getSessionList(user.id);
+    const form = buildAnalysisFormData(
+      {
+        sessionId: session.id,
+        durationSeconds: session.elapsedSeconds,
+        transcriptionAudioUri: session.transcriptionAudioUri ?? session.audioUri ?? '',
+        transcriptionMediaName: session.mediaName ?? 'audio.m4a',
+        transcriptionMediaMimeType: session.mediaMimeType ?? 'audio/mp4',
+        poseJsonUri: session.poseJsonUri,
+        audioAcousticJsonUri: session.audioAcousticJsonUri,
+        legacyLandmarkUri: session.landmarkUri,
+        pipelineVersion: session.pipelineVersion ?? 'legacy',
+        featureFlagSnapshot: session.featureFlagSnapshot ?? {
+          useDevicePosePipeline: !!session.poseJsonUri,
+          useDeviceAcousticPipeline: !!session.audioAcousticJsonUri,
         },
-        trigger: null, // immediate
-      });
+      },
+      {
+        userId: user.id,
+        topicTitle: session.topicTitle,
+        durationLabel: formatDurationLabel(session.elapsedSeconds),
+        isFirstSession: existingSessions.length === 0,
+        isDiagnostic: session.isDiagnostic,
+        planDay: session.planDay,
+        planSession: session.planSession,
+        targetSkill: session.targetSkill,
+        isRecovery: session.isRecovery,
+        weekNumber: session.weekNumber,
+      },
+    );
 
-      // Remove from queue and delete local files
-      await dequeueSession(session.id);
+    const response = await apiClient.post(ENDPOINTS.analyzeFullVideo, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
 
-    } catch (err) {
-      console.error('[QueueDrain] session failed:', err);
-      const newRetry = session.retryCount + 1;
-      if (newRetry >= OFFLINE_QUEUE.RETRY_MAX) {
-        // Mark as permanently failed — user will see it in queue UI
-        await updateQueueEntry(session.id, { status: 'failed', retryCount: newRetry });
-      } else {
-        await updateQueueEntry(session.id, { status: 'pending', retryCount: newRetry });
+    const result = response.data?.job_id
+      ? await waitForEvaluationJob(response.data.job_id)
+      : normalizeEvaluationResult(response.data);
+
+    await saveSession(result, session.elapsedSeconds, session.topicTitle, user.id, null);
+
+    if (typeof session.planDay === 'number' && typeof session.planSession === 'number') {
+      const planStore = usePlanStore.getState();
+      if (!planStore.currentPlan) {
+        await planStore.loadPlan(user.id);
       }
-      // Continue draining other sessions — one failure doesn't block the queue
+
+      await planStore.markTopicComplete(user.id, {
+        day: session.planDay,
+        session: session.planSession,
+        sessionId: result.session_metadata.session_id,
+      });
     }
+
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: 'Coach\'s Report Ready',
+        body: `Your ${session.topicTitle} session has been analysed.`,
+        data: { sessionId: result.session_metadata.session_id },
+      },
+      trigger: null,
+    });
+
+    await dequeueSession(session.id);
+    return 'uploaded';
+  } catch (error) {
+    console.error('[QueueDrain] session failed:', error);
+    const nextRetryCount = session.retryCount + 1;
+
+    if (nextRetryCount >= OFFLINE_QUEUE.RETRY_MAX) {
+      await updateQueueEntry(session.id, { status: 'failed', retryCount: nextRetryCount });
+    } else {
+      await updateQueueEntry(session.id, { status: 'pending', retryCount: nextRetryCount });
+    }
+
+    return 'failed';
+  }
+}
+
+export async function drainNextOfflineSession(): Promise<QueueDrainResult> {
+  if (activeDrainPromise) {
+    return 'busy';
+  }
+
+  activeDrainPromise = (async () => {
+    const netState = await NetInfo.fetch();
+    if (!netState.isConnected) {
+      return 'offline';
+    }
+
+    await resetUploadingQueueEntries();
+    const queue = await getQueue();
+    const nextSession = getNextDrainableSession(queue);
+
+    if (!nextSession) {
+      return 'empty';
+    }
+
+    return uploadQueuedSession(nextSession);
+  })();
+
+  try {
+    return await activeDrainPromise;
+  } finally {
+    activeDrainPromise = null;
   }
 }

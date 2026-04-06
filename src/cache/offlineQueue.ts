@@ -1,22 +1,42 @@
-// src/cache/offlineQueue.ts
-
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system';
+import { OFFLINE_QUEUE } from '../theme/constants';
 
 const QUEUE_KEY = 'sc_offline_queue_v1';
 
 export interface QueuedSession {
-  id:             string;    // uuid — generated at queue time
-  landmarkUri:    string;    // local JSON file path
-  audioUri:       string;    // local audio file path
-  topicTitle:     string;
+  id: string;
+  poseJsonUri?: string;
+  audioAcousticJsonUri?: string;
+  transcriptionAudioUri?: string;
+  landmarkUri?: string;
+  audioUri?: string;
+  mediaName?: string;
+  mediaMimeType?: string;
+  topicTitle: string;
   elapsedSeconds: number;
-  queuedAt:       string;    // ISO 8601
-  retryCount:     number;    // increments on each failed upload attempt
-  status:         'pending' | 'uploading' | 'failed';
+  isDiagnostic?: boolean;
+  planDay?: number;
+  planSession?: number;
+  targetSkill?: string;
+  isRecovery?: boolean;
+  weekNumber?: number;
+  pipelineVersion?: string;
+  featureFlagSnapshot?: {
+    useDevicePosePipeline: boolean;
+    useDeviceAcousticPipeline: boolean;
+  };
+  queuedAt: string;
+  retryCount: number;
+  status: 'pending' | 'uploading' | 'failed';
 }
 
-// ── READ ───────────────────────────────────────────────────────────────────────
+export interface QueueSummary {
+  total: number;
+  pending: number;
+  uploading: number;
+  failed: number;
+}
 
 export async function getQueue(): Promise<QueuedSession[]> {
   try {
@@ -27,15 +47,17 @@ export async function getQueue(): Promise<QueuedSession[]> {
   }
 }
 
-// ── WRITE ──────────────────────────────────────────────────────────────────────
-
 export async function enqueueSession(
   session: Omit<QueuedSession, 'retryCount' | 'status'>,
 ): Promise<void> {
   const queue = await getQueue();
+
+  if (queue.length >= OFFLINE_QUEUE.MAX_SESSIONS) {
+    throw new Error(`Offline queue limit reached (${OFFLINE_QUEUE.MAX_SESSIONS} sessions).`);
+  }
+
   const entry: QueuedSession = { ...session, retryCount: 0, status: 'pending' };
-  const updated = [...queue, entry];
-  await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(updated));
+  await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify([...queue, entry]));
 }
 
 export async function updateQueueEntry(
@@ -43,29 +65,77 @@ export async function updateQueueEntry(
   patch: Partial<Pick<QueuedSession, 'status' | 'retryCount'>>,
 ): Promise<void> {
   const queue = await getQueue();
-  const updated = queue.map((s) => (s.id === id ? { ...s, ...patch } : s));
+  const updated = queue.map((session) => (session.id === id ? { ...session, ...patch } : session));
   await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(updated));
+}
+
+export async function resetUploadingQueueEntries(): Promise<number> {
+  const queue = await getQueue();
+  let resetCount = 0;
+
+  const updated = queue.map((session) => {
+    if (session.status !== 'uploading') {
+      return session;
+    }
+
+    resetCount += 1;
+    return {
+      ...session,
+      status: 'pending' as const,
+    };
+  });
+
+  if (resetCount > 0) {
+    await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(updated));
+  }
+
+  return resetCount;
 }
 
 export async function dequeueSession(id: string): Promise<void> {
   const queue = await getQueue();
-  const session = queue.find((s) => s.id === id);
+  const session = queue.find((entry) => entry.id === id);
 
-  // Delete the local files from disk before removing from queue
-  if (session) {
-    if (session.landmarkUri) {
-      await FileSystem.deleteAsync(session.landmarkUri, { idempotent: true });
-    }
-    if (session.audioUri) {
-      await FileSystem.deleteAsync(session.audioUri, { idempotent: true });
-    }
+  const cleanupTargets = [
+    session?.poseJsonUri,
+    session?.audioAcousticJsonUri,
+    session?.landmarkUri,
+    session?.transcriptionAudioUri,
+    session?.audioUri,
+  ].filter((target): target is string => !!target);
+
+  for (const target of cleanupTargets) {
+    await FileSystem.deleteAsync(target, { idempotent: true }).catch(() => {});
   }
 
-  const updated = queue.filter((s) => s.id !== id);
+  const updated = queue.filter((entry) => entry.id !== id);
   await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(updated));
 }
 
+export async function removeNextQueuedSession(): Promise<QueuedSession | null> {
+  const queue = await getQueue();
+  const nextSession = queue.find((entry) => entry.status === 'pending' || entry.status === 'failed');
+
+  if (!nextSession) {
+    return null;
+  }
+
+  await dequeueSession(nextSession.id);
+  return nextSession;
+}
+
 export async function getQueueCount(): Promise<number> {
-  const q = await getQueue();
-  return q.length;
+  const queue = await getQueue();
+  return queue.length;
+}
+
+export async function getQueueSummary(): Promise<QueueSummary> {
+  const queue = await getQueue();
+
+  return {
+    total: queue.length,
+    pending: queue.filter((session) => session.status === 'pending').length,
+    uploading: queue.filter((session) => session.status === 'uploading').length,
+    failed: queue.filter((session) => session.status === 'failed').length,
+  };
 }

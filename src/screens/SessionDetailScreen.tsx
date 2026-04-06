@@ -5,6 +5,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialIcons } from '@expo/vector-icons';
 import ViewShot from 'react-native-view-shot';
 import dayjs from 'dayjs';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, fonts, fontSize, spacing, radius } from '../theme';
 import { RootStackParamList } from '../types/navigation';
@@ -25,6 +26,7 @@ const SessionDetailScreen = () => {
   const route = useRoute<DetailRouteProp>();
   const { sessionId } = route.params;
   const { user } = useAuthStore();
+  const insets = useSafeAreaInsets();
 
   const [result, setResult] = useState<EvaluationResult | null>(null);
   const [sessionEntry, setSessionEntry] = useState<SessionListEntry | null>(null);
@@ -111,7 +113,7 @@ const SessionDetailScreen = () => {
         </ViewShot>
       </View>
 
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, spacing.sm) + spacing.xs }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerIcon}>
           <MaterialIcons name="chevron-left" size={32} color={colors.textPrimary} />
         </TouchableOpacity>
@@ -144,7 +146,7 @@ const SessionDetailScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.backgroundDark,
+    backgroundColor: 'transparent',
   },
   offscreenContainer: {
     position: 'absolute',
@@ -155,7 +157,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.md,
+    paddingBottom: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderMuted,
   },

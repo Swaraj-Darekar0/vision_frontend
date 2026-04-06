@@ -1,5 +1,5 @@
 // src/api/endpoints.ts
-export const BASE_URL = 'http://192.168.0.102:5000';
+export const BASE_URL ='https://vision-backend-wbi4.onrender.com';
 
 export const ENDPOINTS = {
   analyzeFullVideo: `${BASE_URL}/analyze/full`,
@@ -8,5 +8,13 @@ export const ENDPOINTS = {
   evaluate:         `${BASE_URL}/evaluate`,
   authSignup:       `${BASE_URL}/auth/signup`,
   authLogin:        `${BASE_URL}/auth/login`,
+  subscriptionProfile: `${BASE_URL}/subscription/profile`,
+  planCurrent:      `${BASE_URL}/plan/current`,
+  planGenerate:     `${BASE_URL}/plan/generate`,
+  planMarkComplete: `${BASE_URL}/plan/mark-complete`,
+  planWeeklyReview: `${BASE_URL}/plan/weekly-review`,
+  planReviewShown:  `${BASE_URL}/plan/review-shown`,
+  subscriptionActivate: `${BASE_URL}/subscription/activate`,
+  subscriptionStatus: `${BASE_URL}/subscription/status`,
   jobStatus:        (jobId: string) => `${BASE_URL}/analyze/status/${jobId}`,
 } as const;

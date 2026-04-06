@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Share, LayoutAnimation, Platform, UIManager } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
 import Animated, {
   useSharedValue,
@@ -9,12 +10,13 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { colors, fonts, fontSize, spacing, radius } from '../../theme';
-import { EvaluationResult, OverallScores } from '../../types/api';
+import { DeltaEntry, EvaluationResult, OverallScores } from '../../types/api';
 import { toPercent } from '../../utils/toPercent';
 import { deltaToColor } from '../../utils/deltaToColor';
 import { scoreToLabel } from '../../utils/scoreToLabel';
-import { Card } from './Card';
+import { GlassSurface } from './GlassSurface';
 import { MetricTile } from './MetricTile';
+import { MorphWallpaperSurface } from './MorphWallpaperSurface';
 import { mergeTimelineEvents } from '../../utils/mergeTimelineEvents';
 import { TimelineViewer } from './TimelineViewer';
 
@@ -138,6 +140,7 @@ const deltaStyles = StyleSheet.create({
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 export const ResultsView: React.FC<ResultsViewProps> = React.memo(({ result, sessionDurationLabel, localVideoUri }) => {
+  const isFocused = useIsFocused();
   const { overall_scores, llm_feedback, progress_comparison, raw_metrics_snapshot } = result;
   const displayedDurationLabel = sessionDurationLabel || result.session_metadata.duration_label || '--';
   const topicalRelevanceAnalysis =
@@ -189,45 +192,62 @@ export const ResultsView: React.FC<ResultsViewProps> = React.memo(({ result, ses
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3);
 
+  const stableDelta: DeltaEntry = { change: 0, label: 'Stable' };
+  const safeDeltas = {
+    overall: progress_comparison.deltas?.overall ?? stableDelta,
+    confidence: progress_comparison.deltas?.confidence ?? stableDelta,
+    clarity: progress_comparison.deltas?.clarity ?? stableDelta,
+    engagement: progress_comparison.deltas?.engagement ?? stableDelta,
+    nervousness: progress_comparison.deltas?.nervousness ?? stableDelta,
+    behavioral: {
+      posture_stability: progress_comparison.deltas?.behavioral?.posture_stability ?? stableDelta,
+      filler_reduction: progress_comparison.deltas?.behavioral?.filler_reduction ?? stableDelta,
+      pause_optimization: progress_comparison.deltas?.behavioral?.pause_optimization ?? stableDelta,
+    },
+  };
+
   // Delta map for the progression section
-  const { deltas } = progress_comparison;
   const coreDeltaRows = [
-    { key: 'overall',    label: 'Overall',    icon: 'analytics' as const,        d: deltas.overall },
-    { key: 'confidence', label: 'Confidence', icon: 'psychology' as const,       d: deltas.confidence },
-    { key: 'clarity',    label: 'Clarity',    icon: 'record-voice-over' as const, d: deltas.clarity },
-    { key: 'engagement', label: 'Engagement', icon: 'star-outline' as const,     d: deltas.engagement },
-    { key: 'nervousness',label: 'Nervousness',icon: 'sentiment-satisfied' as const, d: deltas.nervousness },
+    { key: 'overall',    label: 'Overall',    icon: 'analytics' as const,        d: safeDeltas.overall },
+    { key: 'confidence', label: 'Confidence', icon: 'psychology' as const,       d: safeDeltas.confidence },
+    { key: 'clarity',    label: 'Clarity',    icon: 'record-voice-over' as const, d: safeDeltas.clarity },
+    { key: 'engagement', label: 'Engagement', icon: 'star-outline' as const,     d: safeDeltas.engagement },
+    { key: 'nervousness',label: 'Nervousness',icon: 'sentiment-satisfied' as const, d: safeDeltas.nervousness },
   ];
 
   const behavioralDeltaRows = [
-    { key: 'posture',  label: 'Posture Stability', icon: 'accessibility-new' as const, d: deltas.behavioral.posture_stability },
-    { key: 'filler',   label: 'Filler Reduction',  icon: 'voice-over-off' as const,    d: deltas.behavioral.filler_reduction },
-    { key: 'pause',    label: 'Pause Optimisation', icon: 'pause-circle-outline' as const, d: deltas.behavioral.pause_optimization },
+    { key: 'posture',  label: 'Posture Stability', icon: 'accessibility-new' as const, d: safeDeltas.behavioral.posture_stability },
+    { key: 'filler',   label: 'Filler Reduction',  icon: 'voice-over-off' as const,    d: safeDeltas.behavioral.filler_reduction },
+    { key: 'pause',    label: 'Pause Optimisation', icon: 'pause-circle-outline' as const, d: safeDeltas.behavioral.pause_optimization },
   ];
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
 
       {/* ── Overall Score Card ─────────────────────────────────────────────── */}
-      <Card style={styles.overallCard}>
+      <MorphWallpaperSurface
+        isActive={isFocused}
+        style={styles.overallCard}
+        contentStyle={styles.overallCardContent}
+      >
         <View style={styles.overallHeader}>
           <View>
             <Text style={styles.overallLabel}>OVERALL SCORE</Text>
             <AnimatedScore score={overall_scores.overall} />
           </View>
-          <View style={[styles.deltaBadge, { backgroundColor: deltaToColor(progress_comparison.deltas.overall.label) + '20' }]}>
-            <Text style={[styles.deltaText, { color: deltaToColor(progress_comparison.deltas.overall.label) }]}>
-              {progress_comparison.deltas.overall.label}
+          <View style={[styles.deltaBadge, { backgroundColor: deltaToColor(safeDeltas.overall.label) + '20' }]}>
+            <Text style={[styles.deltaText, { color: deltaToColor(safeDeltas.overall.label) }]}>
+              {safeDeltas.overall.label}
             </Text>
           </View>
         </View>
         {displayedDurationLabel && (
           <View style={styles.durationRow}>
-            <MaterialIcons name="schedule" size={16} color={colors.textSecondary} />
+            <MaterialIcons name="schedule" size={16} color={colors.dashboardGlassLight} />
             <Text style={styles.durationText}>{displayedDurationLabel}</Text>
           </View>
         )}
-      </Card>
+      </MorphWallpaperSurface>
 
       {/* ── Metric Grid ────────────────────────────────────────────────────── */}
       <View style={styles.metricGrid}>
@@ -241,7 +261,7 @@ export const ResultsView: React.FC<ResultsViewProps> = React.memo(({ result, ses
           />
           <MetricTile
             icon="record-voice-over"
-            label="Clarity"
+            label="Clarity on topic"
             value={toPercent(overall_scores.clarity)}
             trendIcon={overall_scores.clarity >= 0.7 ? 'trending-up' : 'trending-flat'}
             trendColor={overall_scores.clarity >= 0.7 ? colors.positive : colors.textMuted}
@@ -261,27 +281,34 @@ export const ResultsView: React.FC<ResultsViewProps> = React.memo(({ result, ses
         </View>
       </View>
 
+             <Text style={styles.sectionTitle}>Topic Relevance</Text>
+      <GlassSurface style={styles.listCard}>
+        <View style={styles.topicRelevanceRow}>
+          <MaterialIcons name="topic" size={18} color={colors.primary} />
+          <Text style={styles.topicRelevanceText}>{topicalRelevanceAnalysis}</Text>
+        </View>
+      </GlassSurface> 
       {/* ── Key Strengths ─────────────────────────────────────────────────── */}
       <Text style={styles.sectionTitle}>Key Strengths</Text>
-      <Card style={styles.listCard}>
+      <GlassSurface style={styles.listCard}>
         {strengths.map((strength, i) => (
           <View key={i} style={[styles.listItem, i === strengths.length - 1 && styles.listItemLast]}>
             <MaterialIcons name="check-circle" size={18} color={colors.positive} />
             <Text style={styles.listText}>{strength}</Text>
           </View>
         ))}
-      </Card>
+      </GlassSurface>
 
       {/* ── Areas for Improvement ─────────────────────────────────────────── */}
       <Text style={styles.sectionTitle}>Areas for Improvement</Text>
-      <Card style={styles.listCard}>
+      <GlassSurface style={styles.listCard}>
         {llm_feedback.top_3_action_items.map((item, i) => (
           <View key={i} style={[styles.listItem, i === llm_feedback.top_3_action_items.length - 1 && styles.listItemLast]}>
             <MaterialIcons name="arrow-right-alt" size={18} color={colors.primary} />
             <Text style={styles.listText}>{item}</Text>
           </View>
         ))}
-      </Card>
+      </GlassSurface>
 
       {/* ── Timeline Viewer ────────────────────────────────────────────────── */}
       {timelineClips.length > 0 && (
@@ -293,7 +320,7 @@ export const ResultsView: React.FC<ResultsViewProps> = React.memo(({ result, ses
 
       {/* ── Filler Words (fixed) ───────────────────────────────────────────── */}
       <Text style={styles.sectionTitle}>Filler Words</Text>
-      <Card style={styles.fillerCard}>
+      <GlassSurface style={styles.fillerCard}>
         {/* Header row */}
         <View style={styles.fillerTopRow}>
           <View style={styles.fillerRatioBlock}>
@@ -325,36 +352,32 @@ export const ResultsView: React.FC<ResultsViewProps> = React.memo(({ result, ses
             <Text style={styles.fillerNoDataText}>No filler words detected — great job!</Text>
           </View>
         )}
-      </Card>
+      </GlassSurface>
 
-      {/* ── Timestamped Moments ────────────────────────────────────────────── */}
-      <Text style={styles.sectionTitle}>Topic Relevance</Text>
-      <Card style={styles.listCard}>
-        <View style={styles.topicRelevanceRow}>
-          <MaterialIcons name="topic" size={18} color={colors.primary} />
-          <Text style={styles.topicRelevanceText}>{topicalRelevanceAnalysis}</Text>
-        </View>
-      </Card>
+
+
 
       {/* ── View Your Progression (collapsible) ───────────────────────────── */}
-      <TouchableOpacity
-        style={styles.progressionHeader}
-        onPress={toggleProgress}
-        activeOpacity={0.75}
-      >
-        <View style={styles.progressionHeaderLeft}>
-          <MaterialIcons name="insights" size={20} color={colors.primary} />
-          <Text style={styles.progressionHeaderText}>View Your Progression</Text>
-        </View>
-        <MaterialIcons
-          name={progressOpen ? 'keyboard-arrow-up' : 'keyboard-arrow-down'}
-          size={22}
-          color={colors.textSecondary}
-        />
-      </TouchableOpacity>
+      <GlassSurface style={styles.progressionHeaderShell}>
+        <TouchableOpacity
+          style={styles.progressionHeader}
+          onPress={toggleProgress}
+          activeOpacity={0.75}
+        >
+          <View style={styles.progressionHeaderLeft}>
+            <MaterialIcons name="insights" size={20} color={colors.primary} />
+            <Text style={styles.progressionHeaderText}>View Your Progression</Text>
+          </View>
+          <MaterialIcons
+            name={progressOpen ? 'keyboard-arrow-up' : 'keyboard-arrow-down'}
+            size={22}
+            color={colors.textSecondary}
+          />
+        </TouchableOpacity>
+      </GlassSurface>
 
       {progressOpen && (
-        <Card style={styles.progressionCard}>
+        <GlassSurface style={styles.progressionCard}>
           {/* Headline */}
           <View style={styles.progressionHeadline}>
             <MaterialIcons name="emoji-events" size={16} color={colors.primary} />
@@ -384,7 +407,7 @@ export const ResultsView: React.FC<ResultsViewProps> = React.memo(({ result, ses
               deltaLabel={d.label}
             />
           ))}
-        </Card>
+        </GlassSurface>
       )}
 
       {/* ── Motivational Closing ───────────────────────────────────────────── */}
@@ -409,14 +432,15 @@ const styles = StyleSheet.create({
   content: { padding: spacing.base, paddingBottom: spacing['4xl'] },
 
   // Overall Card
-  overallCard: { marginBottom: spacing.base, padding: spacing.xl },
+  overallCard: { marginBottom: spacing.base },
+  overallCardContent: { padding: spacing.xl },
   overallHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  overallLabel: { color: colors.textMuted, fontSize: fontSize.xs, fontFamily: fonts.bold, letterSpacing: 1.2 },
-  overallValue: { color: colors.textPrimary, fontSize: fontSize['5xl'], fontFamily: fonts.bold, marginTop: spacing.xs },
+  overallLabel: { color: colors.dashboardGlassLight, fontSize: fontSize.xs, fontFamily: fonts.bold, letterSpacing: 1.2 },
+  overallValue: { color: colors.dashboardGlassLight, fontSize: fontSize['5xl'], fontFamily: fonts.numeric, marginTop: spacing.xs },
   deltaBadge: { paddingHorizontal: spacing.sm, paddingVertical: 4, borderRadius: radius.full },
   deltaText: { fontSize: fontSize.xs, fontFamily: fonts.semiBold },
   durationRow: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.md, gap: spacing.xs },
-  durationText: { color: colors.textSecondary, fontSize: fontSize.sm, fontFamily: fonts.regular },
+  durationText: { color: colors.dashboardGlassLight, fontSize: fontSize.sm, fontFamily: fonts.regular },
 
   // Metric Grid
   metricGrid: { marginBottom: spacing.xl },
@@ -448,8 +472,8 @@ const styles = StyleSheet.create({
   fillerTopRow: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: spacing.lg },
   fillerRatioBlock: { alignItems: 'center' },
   fillerCountBlock: { alignItems: 'center' },
-  fillerRatioValue: { color: colors.textPrimary, fontSize: fontSize['3xl'], fontFamily: fonts.bold },
-  fillerCountValue: { color: colors.textPrimary, fontSize: fontSize['3xl'], fontFamily: fonts.bold },
+  fillerRatioValue: { color: colors.textPrimary, fontSize: fontSize['3xl'], fontFamily: fonts.numeric },
+  fillerCountValue: { color: colors.textPrimary, fontSize: fontSize['3xl'], fontFamily: fonts.numeric },
   fillerRatioLabel: { color: colors.textSecondary, fontSize: fontSize.sm, fontFamily: fonts.medium, marginTop: 2 },
   fillerDivider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.borderMuted, marginBottom: spacing.lg },
   fillerWordGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, justifyContent: 'center' },
@@ -469,7 +493,7 @@ const styles = StyleSheet.create({
   },
   fillerWordCount: {
     fontSize: fontSize.xl,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.numeric,
     color: colors.textMuted,
   },
   fillerWordCountActive: { color: colors.negative },
@@ -522,18 +546,17 @@ const styles = StyleSheet.create({
   momentNote: { color: colors.textSecondary, fontSize: fontSize.sm, fontFamily: fonts.regular, lineHeight: 20 },
 
   // ── Progression Dropdown
+  progressionHeaderShell: {
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+  },
   progressionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: colors.surfaceElevated,
     paddingHorizontal: spacing.base,
     paddingVertical: spacing.md,
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.borderMuted,
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
   },
   progressionHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   progressionHeaderText: { color: colors.textPrimary, fontSize: fontSize.md, fontFamily: fonts.semiBold },
