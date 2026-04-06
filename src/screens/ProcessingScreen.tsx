@@ -144,15 +144,15 @@ const ProcessingScreen = () => {
   const getAcousticSubtitle = () => {
     switch (acousticDetail) {
       case 'decoding_audio':
-        return 'Decoding and standardizing speech audio on device before chunked analysis.';
+        return 'Decoding the m4a speech track on device and preparing frontend extraction.';
       case 'analyzing_chunks':
-        return 'Analyzing speech in native chunks so upload can stay light and reliable.';
+        return 'Computing pitch and loudness metrics in TypeScript before upload.';
       case 'building_windows':
-        return 'Building 5-second acoustic windows for backend-aligned timing merges.';
+        return 'Building backend-compatible 5-second acoustic windows.';
       case 'finalizing_metrics':
-        return 'Finalizing compact vocal metrics and preparing the analysis package.';
+        return 'Finalizing rounded acoustic metrics and packaging audio_acoustic_json.';
       default:
-        return 'Computing chunked speech metrics on device before upload.';
+        return 'Computing frontend acoustic metrics on device before upload.';
     }
   };
 

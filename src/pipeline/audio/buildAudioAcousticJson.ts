@@ -1,15 +1,16 @@
-import {
-  addDeviceAudioAnalysisProgressListener,
-  analyzeAudioFile,
-  NativeAudioAnalysisDebugStats,
-} from '../../native/deviceAudioAnalysis';
-import { clamp01 } from '../shared/math';
-import { DEVICE_PIPELINE_VERSION } from '../config/devicePipelineConfig';
+import { decodeAudioFile } from '../../audio/audioFileDecoder';
+import { extractAcousticFeatures } from '../../audio/acousticExtractor';
+import { AUDIO_PIPELINE_VERSION } from '../../audio/audioConstants';
 import { AcousticAnalysisProgressStage, DeviceAudioAcousticJson } from '../types';
 
 export interface BuildAudioAcousticJsonResult {
   payload: DeviceAudioAcousticJson;
-  debugStats?: NativeAudioAnalysisDebugStats;
+  debugStats?: {
+    analyzed_frames: number;
+    voiced_frames: number;
+    duration_seconds: number;
+    analysis_duration_ms: number;
+  };
 }
 
 export async function buildAudioAcousticJson(
@@ -22,21 +23,22 @@ export async function buildAudioAcousticJson(
     audioUri,
   });
   const startedAtMs = Date.now();
-  const subscription = addDeviceAudioAnalysisProgressListener((event) => {
-    console.log('[DevicePipeline] Audio metrics extraction progress', {
-      sessionId,
-      stage: event.stage,
-    });
-    onProgress?.(event.stage);
-  });
 
   try {
-    const nativeMetrics = await analyzeAudioFile(audioUri);
+    onProgress?.('decoding_audio');
+    const decodedAudio = await decodeAudioFile(audioUri);
+    const extracted = await extractAcousticFeatures(decodedAudio, (stage) => {
+      console.log('[DevicePipeline] Audio metrics extraction progress', {
+        sessionId,
+        stage,
+      });
+      onProgress?.(stage);
+    });
 
     console.log('[DevicePipeline] Audio metrics extraction completed', {
       sessionId,
-      hasDebugStats: !!nativeMetrics.debug_stats,
-      acousticWindowCount: nativeMetrics.acoustic_windows?.length ?? 0,
+      hasDebugStats: !!extracted.debug_stats,
+      acousticWindowCount: extracted.acoustic_windows.length,
       elapsedMs: Date.now() - startedAtMs,
     });
 
@@ -44,24 +46,13 @@ export async function buildAudioAcousticJson(
       payload: {
         session_metadata: {
           session_id: sessionId,
-          pipeline: DEVICE_PIPELINE_VERSION.audio,
-          formula_version: DEVICE_PIPELINE_VERSION.formula,
+          pipeline: AUDIO_PIPELINE_VERSION.pipeline,
+          formula_version: AUDIO_PIPELINE_VERSION.formula,
         },
-        acoustic_metrics: {
-          pitch_variance_normalized: clamp01(nativeMetrics.pitch_variance_normalized),
-          jitter_normalized: clamp01(nativeMetrics.jitter_normalized),
-          energy_variation_normalized: clamp01(nativeMetrics.energy_variation_normalized),
-          pause_ratio: clamp01(nativeMetrics.pause_ratio),
-        },
-        acoustic_windows: nativeMetrics.acoustic_windows?.map((window) => ({
-          window_index: window.window_index,
-          time_start: window.time_start,
-          time_end: window.time_end,
-          pitch_variance_normalized: clamp01(window.pitch_variance_normalized),
-          pause_ratio: clamp01(window.pause_ratio),
-        })),
+        acoustic_metrics: extracted.acoustic_metrics,
+        acoustic_windows: extracted.acoustic_windows,
       },
-      debugStats: nativeMetrics.debug_stats,
+      debugStats: extracted.debug_stats,
     };
   } catch (error) {
     console.warn('[DevicePipeline] Audio metrics extraction failed', {
@@ -71,7 +62,5 @@ export async function buildAudioAcousticJson(
       elapsedMs: Date.now() - startedAtMs,
     });
     throw error;
-  } finally {
-    subscription?.remove();
   }
 }

@@ -48,7 +48,7 @@ export interface DeviceAudioAcousticJson {
     energy_variation_normalized: number;
     pause_ratio: number;
   };
-  acoustic_windows?: DeviceAcousticWindow[];
+  acoustic_windows: DeviceAcousticWindow[];
 }
 
 export interface ProcessingSessionCapture {

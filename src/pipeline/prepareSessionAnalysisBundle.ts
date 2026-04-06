@@ -1,5 +1,4 @@
 import * as FileSystem from 'expo-file-system/legacy';
-import { isDeviceAudioAnalysisAvailable } from '../native/deviceAudioAnalysis';
 import { DEVICE_PIPELINE_FLAGS, DEVICE_PIPELINE_VERSION } from './config/devicePipelineConfig';
 import { buildAudioAcousticJson } from './audio/buildAudioAcousticJson';
 import { preprocessAudioForUpload } from './audio/preprocessAudioForUpload';
@@ -66,8 +65,7 @@ export async function prepareSessionAnalysisBundle(
 
   let audioAcousticJsonUri: string | undefined;
   let audioAcousticJson = undefined;
-  const shouldUseDeviceAcousticPipeline =
-    DEVICE_PIPELINE_FLAGS.useDeviceAcousticPipeline && isDeviceAudioAnalysisAvailable();
+  const shouldUseDeviceAcousticPipeline = DEVICE_PIPELINE_FLAGS.useDeviceAcousticPipeline;
 
   if (shouldUseDeviceAcousticPipeline) {
     try {
@@ -105,7 +103,6 @@ export async function prepareSessionAnalysisBundle(
     console.log('[DevicePipeline] Acoustic metrics stage skipped', {
       sessionId: landmarkPayload.session_id,
       deviceFlagEnabled: DEVICE_PIPELINE_FLAGS.useDeviceAcousticPipeline,
-      analyzerAvailable: isDeviceAudioAnalysisAvailable(),
     });
   }
 

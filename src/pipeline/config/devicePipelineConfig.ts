@@ -1,3 +1,5 @@
+import { AUDIO_CONSTANTS, AUDIO_PIPELINE_VERSION } from '../../audio/audioConstants';
+
 export const DEVICE_PIPELINE_FLAGS = {
   useDevicePosePipeline: true,
   useDeviceAcousticPipeline: true,
@@ -5,8 +7,8 @@ export const DEVICE_PIPELINE_FLAGS = {
 
 export const DEVICE_PIPELINE_VERSION = {
   pose: 'pose-device-v1',
-  audio: 'audio-extract-m4a-v1',
-  formula: 'frontend-formulas-2026-04-02',
+  audio: AUDIO_PIPELINE_VERSION.pipeline,
+  formula: AUDIO_PIPELINE_VERSION.formula,
 } as const;
 
 export const DEVICE_PIPELINE_CONFIG = {
@@ -27,14 +29,16 @@ export const DEVICE_PIPELINE_CONFIG = {
     windowSizeSeconds: 5.0,
   },
   audio: {
-    sampleRate: 16000,
+    sampleRate: AUDIO_CONSTANTS.SAMPLE_RATE,
     transcriptionFormat: 'm4a',
     transcriptionBitrate: '64k',
-    pitchVarianceMin: 0.05,
-    pitchVarianceMax: 0.5,
-    jitterThreshold: 0.02,
-    energyVariationThreshold: 0.1,
-    pauseRmsThreshold: 0.01,
-    windowSizeSeconds: 5.0,
+    fftSize: AUDIO_CONSTANTS.FFT_SIZE,
+    hopLength: AUDIO_CONSTANTS.HOP_LENGTH,
+    pitchVarianceMin: AUDIO_CONSTANTS.PITCH_VARIANCE_MIN,
+    pitchVarianceMax: AUDIO_CONSTANTS.PITCH_VARIANCE_MAX,
+    jitterThreshold: AUDIO_CONSTANTS.JITTER_THRESHOLD,
+    energyVariationThreshold: AUDIO_CONSTANTS.ENERGY_VAR_THRESHOLD,
+    pauseRmsThreshold: AUDIO_CONSTANTS.PAUSE_RMS_THRESHOLD,
+    windowSizeSeconds: AUDIO_CONSTANTS.WINDOW_SIZE_SECONDS,
   },
 } as const;
