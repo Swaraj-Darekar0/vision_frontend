@@ -13,6 +13,8 @@ export interface TimestampedMoment {
 }
 
 export interface LLMFeedback {
+  reasoning_clarity_score?:          number;
+  topic_relevance_score?:            number;
   overall_summary:                  string;
   progress_narrative:               string;
   topical_relevance_analysis:       string;
@@ -26,6 +28,7 @@ export interface LLMFeedback {
 export interface OverallScores {
   clarity:     number;   // [0, 1]
   confidence:  number;
+  content_effectiveness?: number;
   engagement:  number;
   nervousness: number;
   overall:     number;
@@ -68,6 +71,9 @@ export interface AudioMetrics {
   jitter_normalized:                  number;
   pause_ratio:                        number;
   pitch_variance_normalized:          number;
+  reasoning_clarity?:                 number;
+  topic_relevance?:                   number;
+  content_effectiveness?:             number;
   speech_rate_instability_normalized: number;
   speech_rate_score:                  number;
   speech_rate_wpm:                    number;

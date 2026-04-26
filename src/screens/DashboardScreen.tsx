@@ -6,6 +6,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import NetInfo from '@react-native-community/netinfo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import dayjs from 'dayjs';
+import { Asset } from 'expo-asset';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, fonts, fontSize, spacing, radius } from '../theme';
@@ -82,6 +83,14 @@ const DashboardScreen = () => {
     if (!currentPlan || dailyLimitReached) return null;
     return todaySessions.find((topic) => !topic.completed) || fallbackTopic;
   }, [currentPlan, dailyLimitReached, fallbackTopic, todaySessions]);
+
+  useEffect(() => {
+    void Asset.fromModule(require("../../assets/images/do's and don'ts.png"))
+      .downloadAsync()
+      .catch((error) => {
+        console.warn('[Dashboard] Failed to preload recording helper image', error);
+      });
+  }, []);
 
   useEffect(() => {
     if (user && !user.display_name) {

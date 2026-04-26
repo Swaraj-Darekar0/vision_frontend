@@ -26,6 +26,7 @@ import { useAuthStore } from '../store/authStore';
 import { useGradient } from '../context/GradientContext';
 import { useGradientTransition } from '../hooks/useGradientTransition';
 import { AUTH_WALLPAPER_IMAGE } from '../constants/gradients';
+import { EnvelopeIntroOverlay } from '../components/auth/EnvelopeIntroOverlay';
 
 type LoginNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Login'>;
 
@@ -41,6 +42,7 @@ const LoginScreen = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [focusedField, setFocusedField] = useState<'email' | 'password' | null>(null);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [showIntroOverlay, setShowIntroOverlay] = useState(true);
 
   const { setImageUri } = useGradient();
   const { ensureAuthState, handleSignIn, isTransitioning } = useGradientTransition();
@@ -227,6 +229,7 @@ const LoginScreen = () => {
           </View>
         </Animated.View>
       </View>
+      {/* {showIntroOverlay ? <EnvelopeIntroOverlay onDismiss={() => setShowIntroOverlay(false)} /> : null} */}
     </View>
   );
 };

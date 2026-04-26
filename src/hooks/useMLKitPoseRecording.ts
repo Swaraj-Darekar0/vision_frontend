@@ -77,7 +77,8 @@ function getFramingStatus(result: NativePoseDetectionResult): FramingStatus {
 
 export function useMLKitPoseRecording() {
   const { user } = useAuthStore();
-  const device = useCameraDevice('front');
+  const [cameraPosition, setCameraPosition] = useState<'front' | 'back'>('front');
+  const device = useCameraDevice(cameraPosition);
   const cameraRef = useRef<Camera | null>(null);
   const landmarkFramesRef = useRef<LandmarkFrame[]>([]);
   const recordingStartTimeRef = useRef<number>(0);
@@ -271,8 +272,19 @@ export function useMLKitPoseRecording() {
     startTimer();
   }, []);
 
+  const switchCamera = useCallback(() => {
+    if (isRecordingRef.current || isStartingRecordingRef.current) {
+      return;
+    }
+
+    setCameraPosition((current) => (current === 'front' ? 'back' : 'front'));
+    setFramingReady(false);
+    setFramingMessage('Switching camera...');
+  }, []);
+
   return {
     cameraRef,
+    cameraPosition,
     device,
     frameProcessor: isPoseCaptureAvailable ? frameProcessor : undefined,
     state,
@@ -284,5 +296,6 @@ export function useMLKitPoseRecording() {
     stopRecording,
     pauseRecording,
     resumeRecording,
+    switchCamera,
   };
 }

@@ -23,7 +23,7 @@
       }
     },
     "android": {
-      "newArchEnabled": false,
+      "newArchEnabled": true,
       "adaptiveIcon": {
         "backgroundColor": "#000000",
         "foregroundImage": "./assets/images/loginbgg.jpg",
