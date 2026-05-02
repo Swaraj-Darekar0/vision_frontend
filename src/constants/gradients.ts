@@ -23,6 +23,7 @@ export const SCREEN_GRADIENTS: Record<keyof RootStackParamList, GradientPalette>
   Signup: authPalette,
   Welcome: authPalette,
   Dashboard: ['#161B24', '#3C6865', '#080B0D'],
+  Profile: ['#141A22', '#4E6F68', '#080B0D'],
   DiagnosticEntry: ['#1A202B', '#65472F', '#07090D'],
   PostAssessment: ['#211D31', '#65506E', '#09070D'],
   PersonalizationOnboarding: ['#132128', '#3B6650', '#070A0D'],

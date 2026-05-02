@@ -12,6 +12,12 @@ import { formatDurationLabel } from '../utils/formatTime';
 import { buildAnalysisFormData } from '../pipeline/buildAnalysisFormData';
 import { PreparedSessionAnalysisBundle } from '../pipeline/types';
 import { cleanupPreparedSessionAnalysisBundle } from '../pipeline/prepareSessionAnalysisBundle';
+import {
+  ensureVisionNotificationChannel,
+  getVisionNotificationSound,
+  markVisionNotificationSoundUnavailable,
+  REPORT_READY_CHANNEL_ID,
+} from '../services/notificationSound';
 
 export type UploadStatus =
   | 'idle' | 'uploading' | 'processing' | 'done' | 'error';
@@ -153,14 +159,29 @@ export function useSessionUpload() {
       console.log('[SessionUpload] Session upload flow completed successfully', {
         sessionId: result.session_metadata.session_id,
       });
-      await Notifications.scheduleNotificationAsync({
+      await ensureVisionNotificationChannel(REPORT_READY_CHANNEL_ID, 'Report ready');
+      const notificationRequest: Notifications.NotificationRequestInput = {
         content: {
           title: 'Vision',
           body: 'Your session data is ready.',
+          sound: getVisionNotificationSound(),
           data: { sessionId: result.session_metadata.session_id },
         },
-        trigger: null,
-      });
+        trigger: { channelId: REPORT_READY_CHANNEL_ID },
+      };
+
+      try {
+        await Notifications.scheduleNotificationAsync(notificationRequest);
+      } catch (notificationError) {
+        markVisionNotificationSoundUnavailable(notificationError);
+        await Notifications.scheduleNotificationAsync({
+          ...notificationRequest,
+          content: {
+            ...notificationRequest.content,
+            sound: true,
+          },
+        });
+      }
 
       setStatus('done');
       return 'uploaded';

@@ -4,6 +4,7 @@ import {
   StyleSheet,
   Text,
   LayoutChangeEvent,
+  useWindowDimensions,
 } from 'react-native';
 import Animated, {
   Easing,
@@ -44,9 +45,13 @@ export const PerformanceGrid: React.FC<PerformanceGridProps> = ({
   nervousnessScore,
   isActive = true,
 }) => {
+  const { width } = useWindowDimensions();
   const [activeIndex, setActiveIndex] = useState(0);
   const [carouselWidth, setCarouselWidth] = useState(0);
   const viewportWidth = Math.max(0, carouselWidth);
+  const isCompactWidth = width < 390;
+  const shouldStack = width < 360;
+  const tileHeight = isCompactWidth ? 158 : 146;
   const translateX = useSharedValue(0);
   const dragStartX = useSharedValue(0);
   const activeIndexValue = useSharedValue(0);
@@ -137,20 +142,33 @@ export const PerformanceGrid: React.FC<PerformanceGridProps> = ({
         </View>
 
         <View style={styles.metricBody}>
-          <Text style={styles.metricValue}>{metricLabel}</Text>
-          <Text style={styles.metricSubtext}>{metricPercent}</Text>
-          <Text style={styles.metricHint}>slide to view</Text>
+          <Text style={[styles.metricValue, isCompactWidth && styles.metricValueCompact]}>
+            {metricLabel}
+          </Text>
+          <Text style={[styles.metricSubtext, isCompactWidth && styles.metricSubtextCompact]}>
+            {metricPercent}
+          </Text>
+        </View>
+        <View style={styles.metricFooter}>
+          <Text
+            style={styles.metricHint}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.9}
+          >
+            slide to view
+          </Text>
         </View>
       </View>
     );
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, shouldStack && styles.containerStack]}>
       <MorphWallpaperSurface
         borderless
         isActive={isActive}
-        style={[styles.tileShell, styles.overallMorphTile]}
+        style={[styles.tileShell, { height: tileHeight }]}
       >
         <View style={styles.overallHeader}>
           <MaterialIcons name="monitor" size={20} color={colors.dashboardGlassLight} />
@@ -165,9 +183,12 @@ export const PerformanceGrid: React.FC<PerformanceGridProps> = ({
       <GlassSurface
         variant="light"
         grainOpacity={0.10}
-        style={[styles.carouselCard, styles.tileShell]}
+        style={[styles.tileShell, { height: tileHeight }]}
       >
-        <View onLayout={handleCarouselLayout} style={styles.carouselCardInner}>
+        <View
+          onLayout={handleCarouselLayout}
+          style={[styles.carouselCardInner, isCompactWidth && styles.carouselCardInnerCompact]}
+        >
           <GestureDetector gesture={panGesture}>
             <View style={styles.carouselViewport}>
               {viewportWidth > 0 ? (
@@ -200,13 +221,13 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
     alignItems: 'stretch',
   },
+  containerStack: {
+    flexDirection: 'column',
+  },
   tileShell: {
     flex: 1,
     flexBasis: 0,
     minWidth: 0,
-  },
-  overallMorphTile: {
-    height: 146,
   },
   overallHeader: {
     flexDirection: 'row',
@@ -230,19 +251,20 @@ const styles = StyleSheet.create({
   },
   overallValue: {
     color: colors.dashboardGlassLight,
-    fontSize: 64,
-    lineHeight: 78,
+    fontSize: 60,
+    lineHeight: 72,
     fontFamily: fonts.numeric,
     textAlign: 'center',
-  },
-  carouselCard: {
-    height: 146,
   },
   carouselCardInner: {
     flex: 1,
     paddingHorizontal: spacing.md,
     paddingTop: spacing.md,
     paddingBottom: spacing.sm,
+  },
+  carouselCardInnerCompact: {
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.sm,
   },
   metricHeader: {
     flexDirection: 'row',
@@ -269,8 +291,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: spacing.xs,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.xs,
   },
   carouselViewport: {
     flex: 1,
@@ -282,7 +304,7 @@ const styles = StyleSheet.create({
   },
   slide: {
     flex: 1,
-    justifyContent: 'flex-start',
+    justifyContent: 'space-between',
     paddingHorizontal: spacing.xs,
   },
   metricValue: {
@@ -295,15 +317,24 @@ const styles = StyleSheet.create({
   },
   metricSubtext: {
     color: colors.dashboardOnLightPrimary,
-    fontSize: 60,
-    lineHeight: 62,
+    fontSize: 56,
+    lineHeight: 58,
     fontFamily: fonts.numeric,
     textAlign: 'center',
     marginTop: spacing.xs,
   },
+  metricValueCompact: {
+    fontSize: fontSize.lg,
+    lineHeight: 24,
+  },
+  metricSubtextCompact: {
+    fontSize: 48,
+    lineHeight: 50,
+  },
   metricFooter: {
     alignItems: 'center',
     paddingTop: spacing.xs,
+    minHeight: 18,
   },
   metricHint: {
     color: colors.dashboardOnLightMuted,

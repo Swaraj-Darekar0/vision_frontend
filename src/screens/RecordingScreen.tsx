@@ -373,7 +373,7 @@ const RecordingScreen = () => {
               <MaterialIcons name="close" size={24} color={colors.textPrimary} />
             </TouchableOpacity>
             <Image
-              source={require("../../assets/images/do's and don'ts.png")}
+              source={require('../../assets/images/dos_and_donts.png')}
               style={styles.helperImage}
               resizeMode="contain"
             />

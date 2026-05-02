@@ -21,6 +21,7 @@ import { SessionListItem } from '../components/history/SessionListItem';
 import { SessionListHeader } from '../components/history/SessionListHeader';
 import { syncSessionsFromCloud, deleteSession } from '../cache/sessionCache';
 import { SessionListEntry } from '../types/cache';
+import { preloadMorphWallpaperImage } from '../components/ui/MorphWallpaperSurface';
 
 type HistoryNavigationProp = NativeStackNavigationProp<RootStackParamList, 'SessionHistory'>;
 
@@ -34,6 +35,12 @@ const SessionHistoryScreen = () => {
   const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
   const hasPlayedEntranceRef = useRef(false);
   const shouldAnimateEntrance = sessions.length > 1 && !hasPlayedEntranceRef.current;
+
+  useEffect(() => {
+    void preloadMorphWallpaperImage().catch((error) => {
+      console.warn('[SessionHistory] Failed to preload result card wallpaper:', error);
+    });
+  }, []);
 
   useEffect(() => {
     if (sessions.length === 0) {

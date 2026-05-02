@@ -1,0 +1,8 @@
+  --non-interactive is not supported, use $CI=1 instead
+env: load .env
+env: export EXPO_PUBLIC_API_BASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY EXPO_PUBLIC_SUPABASE_URL
+Starting project at E:\visionFrontend\frontend\SpeakingCoach
+Starting Metro Bundler
+
+Waiting on http://localhost:8082
+Logs for your project will appear below.

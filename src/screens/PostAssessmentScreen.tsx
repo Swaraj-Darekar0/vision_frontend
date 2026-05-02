@@ -10,6 +10,7 @@ import { useSessionStore } from '../store/sessionStore';
 import { classifySpeakerLevel } from '../utils/classifySpeakerLevel';
 import { deriveFocusAreas } from '../utils/deriveFocusAreas';
 import { useAuthStore } from '../store/authStore';
+import { useAdaptiveLayout } from '../hooks/useAdaptiveLayout';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'PostAssessment'>;
 
@@ -18,6 +19,7 @@ const PostAssessmentScreen = () => {
   const { latestResult, elapsedSeconds, localVideoUri } = useSessionStore();
   const { setSpeakerLevel, markDiagnosticComplete } = useAuthStore();
   const [analysisOpen, setAnalysisOpen] = useState(false);
+  const { bottomSpacing, horizontalPadding, isNarrow } = useAdaptiveLayout();
 
   const level = useMemo(() => {
     if (!latestResult) return 'developing';
@@ -47,7 +49,15 @@ const PostAssessmentScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          {
+            paddingHorizontal: horizontalPadding,
+            paddingBottom: bottomSpacing + spacing['2xl'],
+          },
+        ]}
+      >
         <SpeakerLevelBadge level={level} />
 
         <View style={styles.summaryCard}>
@@ -79,7 +89,9 @@ const PostAssessmentScreen = () => {
         ) : null}
 
         <View style={styles.planHook}>
-          <Text style={styles.planHookTitle}>Let&apos;s get you for good.</Text>
+          <Text style={[styles.planHookTitle, isNarrow && styles.planHookTitleCompact]}>
+            Let&apos;s get you for good.
+          </Text>
           <Text style={styles.planHookCopy}>Your weekly plan is ready.</Text>
           <Text style={styles.planHookCopy}>
             Sessions adapt based on your progress. Your plan starts at 2 sessions/day, about 2 minutes each.
@@ -88,7 +100,7 @@ const PostAssessmentScreen = () => {
         </View>
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingHorizontal: horizontalPadding, paddingBottom: bottomSpacing }]}>
         <TouchableOpacity style={styles.primaryButton} onPress={() => void handleReady()}>
           <Text style={styles.primaryButtonText}>I&apos;m Ready</Text>
         </TouchableOpacity>
@@ -104,8 +116,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   content: {
-    padding: spacing.base,
-    paddingBottom: spacing['4xl'],
+    paddingTop: spacing.base,
   },
   summaryCard: {
     backgroundColor: colors.surfaceDark,
@@ -174,6 +185,9 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
     textAlign: 'center',
   },
+  planHookTitleCompact: {
+    fontSize: fontSize.xl,
+  },
   planHookCopy: {
     color: colors.textSecondary,
     fontSize: fontSize.md,
@@ -182,7 +196,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   footer: {
-    padding: spacing.base,
+    paddingTop: spacing.base,
     borderTopWidth: 1,
     borderTopColor: colors.borderMuted,
   },

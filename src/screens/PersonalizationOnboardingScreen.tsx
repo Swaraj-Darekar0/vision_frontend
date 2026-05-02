@@ -8,6 +8,7 @@ import { RootStackParamList } from '../types/navigation';
 import { OnboardingQuestion } from '../components/onboarding/OnboardingQuestion';
 import { useAuthStore } from '../store/authStore';
 import { UserPersonalizationProfile } from '../types/plan';
+import { useAdaptiveLayout } from '../hooks/useAdaptiveLayout';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'PersonalizationOnboarding'>;
 
@@ -117,6 +118,7 @@ const PersonalizationOnboardingScreen = () => {
   const navigation = useNavigation<NavigationProp>();
   const { updatePersonalizationProfile } = useAuthStore();
   const insets = useSafeAreaInsets();
+  const { bottomSpacing, horizontalPadding, isNarrow, topSpacing } = useAdaptiveLayout();
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string[]>>({});
 
@@ -150,7 +152,15 @@ const PersonalizationOnboardingScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, spacing.sm) + spacing.xs }]}>
+      <View
+        style={[
+          styles.header,
+          {
+            paddingTop: Math.max(insets.top, topSpacing),
+            paddingHorizontal: horizontalPadding,
+          },
+        ]}
+      >
         <TouchableOpacity disabled={step === 0} onPress={() => setStep((value) => Math.max(0, value - 1))}>
           <Text style={[styles.backText, step === 0 && styles.backTextMuted]}>Back</Text>
         </TouchableOpacity>
@@ -159,8 +169,10 @@ const PersonalizationOnboardingScreen = () => {
       </View>
 
       {step === 0 ? (
-        <View style={styles.intro}>
-          <Text style={styles.introTitle}>One last step before your plan.</Text>
+        <View style={[styles.intro, { paddingHorizontal: horizontalPadding }]}>
+          <Text style={[styles.introTitle, isNarrow && styles.introTitleCompact]}>
+            One last step before your plan.
+          </Text>
           <Text style={styles.introCopy}>
             We&apos;ll ask 5 quick questions so your sessions feel relevant to your real life, not like a generic script.
           </Text>
@@ -175,10 +187,19 @@ const PersonalizationOnboardingScreen = () => {
         multiSelect={current.multiSelect}
         selected={selected}
         onSelect={(next) => setAnswers((value) => ({ ...value, [current.key]: next }))}
+        contentPadding={horizontalPadding}
+        bottomPadding={bottomSpacing}
       />
 
       <TouchableOpacity
-        style={[styles.button, !canContinue && styles.buttonDisabled]}
+        style={[
+          styles.button,
+          {
+            marginHorizontal: horizontalPadding,
+            marginBottom: Math.max(bottomSpacing, spacing.sm),
+          },
+          !canContinue && styles.buttonDisabled,
+        ]}
         disabled={!canContinue}
         onPress={() => void handleContinue()}
       >
@@ -192,7 +213,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'transparent',
-    padding: spacing.base,
   },
   header: {
     flexDirection: 'row',
@@ -226,6 +246,9 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
     marginBottom: spacing.sm,
   },
+  introTitleCompact: {
+    fontSize: fontSize.lg,
+  },
   introCopy: {
     color: colors.textSecondary,
     fontSize: fontSize.md,
@@ -244,7 +267,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     alignItems: 'center',
     marginTop: spacing.base,
-    marginBottom: Math.max(spacing.base, spacing.sm),
   },
   buttonDisabled: {
     opacity: 0.4,

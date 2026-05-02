@@ -1,11 +1,12 @@
 import React from 'react';
-import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, fonts, fontSize, radius, spacing } from '../theme';
 import { RootStackParamList } from '../types/navigation';
 import { useAuthStore } from '../store/authStore';
 import { usePlanStore } from '../store/planStore';
+import { useAdaptiveLayout } from '../hooks/useAdaptiveLayout';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'WeeklyReview'>;
 
@@ -13,6 +14,7 @@ const WeeklyReviewScreen = () => {
   const navigation = useNavigation<NavigationProp>();
   const { user } = useAuthStore();
   const { weeklyReview, markReviewShown } = usePlanStore();
+  const { bottomSpacing, cardPadding, horizontalPadding, isNarrow, topSpacing } = useAdaptiveLayout();
 
   const handleClose = async () => {
     if (user?.id && weeklyReview?.week_number) {
@@ -22,10 +24,23 @@ const WeeklyReviewScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.card}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[
+        styles.content,
+        {
+          paddingHorizontal: horizontalPadding,
+          paddingTop: topSpacing,
+          paddingBottom: bottomSpacing,
+        },
+      ]}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={[styles.card, { padding: cardPadding }]}>
         <Text style={styles.eyebrow}>WEEKLY REVIEW</Text>
-        <Text style={styles.title}>Week {weeklyReview?.week_number || 1}</Text>
+        <Text style={[styles.title, isNarrow && styles.titleCompact]}>
+          Week {weeklyReview?.week_number || 1}
+        </Text>
         <Text style={styles.narrative}>
           {weeklyReview?.review_narrative || 'Your first review will appear after you complete a full week of sessions.'}
         </Text>
@@ -40,7 +55,7 @@ const WeeklyReviewScreen = () => {
       <TouchableOpacity style={styles.button} onPress={() => void handleClose()}>
         <Text style={styles.buttonText}>Start Next Week</Text>
       </TouchableOpacity>
-    </SafeAreaView>
+    </ScrollView>
   );
 };
 
@@ -48,13 +63,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'transparent',
-    padding: spacing.base,
+  },
+  content: {
+    flexGrow: 1,
     justifyContent: 'center',
   },
   card: {
     backgroundColor: colors.surfaceElevated,
     borderRadius: radius.xl,
-    padding: spacing.xl,
     borderWidth: 1,
     borderColor: colors.borderMuted,
   },
@@ -70,6 +86,9 @@ const styles = StyleSheet.create({
     fontSize: fontSize['3xl'],
     fontFamily: fonts.bold,
     marginBottom: spacing.md,
+  },
+  titleCompact: {
+    fontSize: fontSize['2xl'],
   },
   narrative: {
     color: colors.textSecondary,

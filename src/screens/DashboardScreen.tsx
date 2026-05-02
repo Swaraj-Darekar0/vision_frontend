@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, Modal, TouchableWithoutFeedback, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity } from 'react-native';
 import { useNavigation, useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -25,6 +25,8 @@ import { useStreakStore } from '../store/streakStore';
 import { usePlanStore } from '../store/planStore';
 import { useSessionStore } from '../store/sessionStore';
 import { CACHE_KEYS } from '../cache/cacheKeys';
+import { useAdaptiveLayout } from '../hooks/useAdaptiveLayout';
+import { scheduleDailySessionReminders } from '../services/dailySessionReminderNotifications';
 
 type DashboardNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Dashboard'>;
 
@@ -32,14 +34,14 @@ const DashboardScreen = () => {
   const navigation = useNavigation<DashboardNavigationProp>();
   const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
-  const { user, updateDisplayName, logout, refreshSubscriptionStatus } = useAuthStore();
+  const { bottomSpacing, horizontalPadding, isShort, topSpacing } = useAdaptiveLayout();
+  const { user, updateDisplayName, refreshSubscriptionStatus } = useAuthStore();
   const { sessions, milestoneTip, milestoneTipSkill, refresh, dismissMilestoneTip } = useStreakStore();
   const { currentPlan, hydratePlanFromCache, ensurePlan, createWeeklyReview } = usePlanStore();
   const { latestSessionSummary, setLatestSessionSummary, setLatestResult, setRecordingMeta } = useSessionStore();
 
   const [latestSession, setLatestSession] = useState<SessionListEntry | null>(latestSessionSummary);
   const [showNameModal, setShowNameModal] = useState(false);
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [wasOffline, setWasOffline] = useState(false);
   const todayIndex = Math.min(dayjs().day() === 0 ? 7 : dayjs().day(), 7);
   const todaySessions = useMemo(
@@ -71,6 +73,33 @@ const DashboardScreen = () => {
 
     return 8;
   }, [currentPlan]);
+  const completedAllocatedSessions = useMemo(() => {
+    if (currentPlan?.topics?.length) {
+      return currentPlan.topics.filter((topic) => topic.completed).length;
+    }
+
+    return Math.min(sessions.length, totalAllocatedSessions);
+  }, [currentPlan, sessions.length, totalAllocatedSessions]);
+  const streakSquareStates = useMemo(() => {
+    if (!currentPlan?.topics?.length) {
+      return undefined;
+    }
+
+    return currentPlan.topics
+      .slice()
+      .sort((a, b) => (a.day - b.day) || (a.session - b.session))
+      .map((topic) => {
+        if (topic.completed) {
+          return 'completed' as const;
+        }
+
+        if (topic.day < todayIndex) {
+          return 'missed' as const;
+        }
+
+        return topic.day === todayIndex ? 'today' as const : 'pending' as const;
+      });
+  }, [currentPlan, todayIndex]);
   const fallbackTopic = useMemo(
     () =>
       currentPlan?.topics
@@ -85,7 +114,7 @@ const DashboardScreen = () => {
   }, [currentPlan, dailyLimitReached, fallbackTopic, todaySessions]);
 
   useEffect(() => {
-    void Asset.fromModule(require("../../assets/images/do's and don'ts.png"))
+    void Asset.fromModule(require('../../assets/images/dos_and_donts.png'))
       .downloadAsync()
       .catch((error) => {
         console.warn('[Dashboard] Failed to preload recording helper image', error);
@@ -141,6 +170,19 @@ const DashboardScreen = () => {
     refreshSubscriptionStatus,
     user,
   ]);
+
+  useEffect(() => {
+    if (!user?.id || user.subscription_status !== 'active' || !currentPlan?.topics?.length) {
+      return;
+    }
+
+    void scheduleDailySessionReminders({
+      userId: user.id,
+      remainingTodayCount,
+    }).catch((error) => {
+      console.warn('[Dashboard] Failed to schedule daily session reminders:', error);
+    });
+  }, [currentPlan?.topics, remainingTodayCount, user?.id, user?.subscription_status]);
 
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener((state) => {
@@ -209,11 +251,6 @@ const DashboardScreen = () => {
     setShowNameModal(false);
   };
 
-  const handleLogout = async () => {
-    setShowProfileMenu(false);
-    await logout();
-  };
-
   const handleGetGoing = async () => {
     if (!user) return;
 
@@ -248,22 +285,31 @@ const DashboardScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={[styles.headerContainer, { paddingTop: Math.max(insets.top, spacing.md) + spacing.sm }]}>
+      <View style={[styles.headerContainer, { paddingTop: Math.max(insets.top, topSpacing), paddingHorizontal: horizontalPadding }]}>
         <View>
           
           
         </View>
         <TouchableOpacity
-          onPress={() => setShowProfileMenu(true)}
+          onPress={() => navigation.navigate('Profile')}
           style={styles.profileButton}
           accessibilityRole="button"
-          accessibilityLabel="Open profile menu"
+          accessibilityLabel="Open profile"
         >
           <MaterialIcons name="account-circle" size={32} color={colors.textPrimary} />
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingHorizontal: horizontalPadding,
+            paddingBottom: bottomSpacing + (isShort ? spacing.lg : spacing['2xl']),
+          },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
         {milestoneTip && milestoneTipSkill && (
           <StreakMilestoneTip
             tip={milestoneTip}
@@ -284,8 +330,9 @@ const DashboardScreen = () => {
         />
 
         <StreakSection
-          sessions={sessions}
           totalAllocatedSessions={totalAllocatedSessions}
+          completedSessions={completedAllocatedSessions}
+          squareStates={streakSquareStates}
           onPress={() => navigation.navigate('SessionHistory')}
         />
 
@@ -340,27 +387,6 @@ const DashboardScreen = () => {
 
       <NameInputModal visible={showNameModal} onSubmit={handleNameSubmit} />
 
-      <Modal
-        visible={showProfileMenu}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowProfileMenu(false)}
-      >
-        <TouchableWithoutFeedback onPress={() => setShowProfileMenu(false)}>
-          <View style={styles.menuOverlay}>
-            <View style={styles.menuContainer}>
-              <Text style={styles.menuName} numberOfLines={1}>
-                {user?.display_name || user?.email || 'User'}
-              </Text>
-              <View style={styles.menuDivider} />
-              <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
-                <MaterialIcons name="logout" size={20} color={colors.recordingRed} />
-                <Text style={styles.menuItemText}>Sign Out</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
     </SafeAreaView>
   );
 };
@@ -374,13 +400,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    paddingHorizontal: spacing.base,
     marginBottom: spacing.md,
   },
   scrollContent: {
-    padding: spacing.base,
+    flexGrow: 1,
     paddingTop: 0,
-    minHeight: '100%',
   },
   title: {
     color: colors.dashboardTextPrimary,
@@ -396,52 +420,6 @@ const styles = StyleSheet.create({
   profileButton: {
     padding: spacing.sm,
     alignSelf: 'flex-start',
-  },
-  menuOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-start',
-    alignItems: 'flex-end',
-    paddingTop: 60,
-    paddingRight: spacing.base,
-  },
-  menuContainer: {
-    backgroundColor: colors.dashboardSurfaceOverlay,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    minWidth: 180,
-    borderWidth: 1,
-    borderColor: colors.dashboardBorderSoft,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  menuName: {
-    color: colors.dashboardTextPrimary,
-    fontSize: fontSize.md,
-    fontFamily: fonts.semiBold,
-    marginBottom: spacing.sm,
-  },
-  menuDivider: {
-    height: 1,
-    backgroundColor: colors.dashboardBorderFaint,
-    marginVertical: spacing.xs,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-  },
-  menuItemText: {
-    color: colors.recordingRed,
-    fontSize: fontSize.md,
-    fontFamily: fonts.medium,
-    marginLeft: spacing.sm,
   },
   modelInfoContainer: {
     flexDirection: 'row',

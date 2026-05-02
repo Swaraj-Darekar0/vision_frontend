@@ -1,27 +1,46 @@
 import React from 'react';
-import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, fonts, fontSize, radius, spacing } from '../theme';
 import { DIAGNOSTIC_TOPIC } from '../theme/constants';
 import { RootStackParamList } from '../types/navigation';
+import { useAdaptiveLayout } from '../hooks/useAdaptiveLayout';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'DiagnosticEntry'>;
 
 const DiagnosticEntryScreen = () => {
   const navigation = useNavigation<NavigationProp>();
+  const { bottomSpacing, cardPadding, heroTopSpacing, horizontalPadding, isNarrow, sectionGap, topSpacing } =
+    useAdaptiveLayout();
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.hero}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[
+        styles.content,
+        {
+          paddingHorizontal: horizontalPadding,
+          paddingTop: topSpacing,
+          paddingBottom: bottomSpacing,
+          rowGap: sectionGap,
+        },
+      ]}
+      showsVerticalScrollIndicator={false}
+      bounces={false}
+    >
+      <View style={[styles.hero, { paddingTop: heroTopSpacing }]}>
         <Text style={styles.eyebrow}>FIRST STEP</Text>
-        <Text style={styles.title}>Let&apos;s assess your current level.</Text>
+        <Text style={[styles.title, isNarrow && styles.titleCompact]}>
+          Let&apos;s assess your current level.
+        </Text>
         <Text style={styles.copy}>
-          Start with one short diagnostic session. We&apos;ll use it to understand how you speak today and shape the training that follows.
+          Start with one short diagnostic session. We&apos;ll use it to understand how you
+          speak today and shape the training that follows.
         </Text>
       </View>
 
-      <View style={styles.card}>
+      <View style={[styles.card, { padding: cardPadding }]}>
         <Text style={styles.cardLabel}>DIAGNOSTIC TOPIC</Text>
         <Text style={styles.cardTitle}>{DIAGNOSTIC_TOPIC.TITLE}</Text>
         <Text style={styles.cardHint}>About {DIAGNOSTIC_TOPIC.DURATION_MINUTES} minutes</Text>
@@ -39,7 +58,7 @@ const DiagnosticEntryScreen = () => {
       >
         <Text style={styles.buttonText}>Start Diagnostic</Text>
       </TouchableOpacity>
-    </SafeAreaView>
+    </ScrollView>
   );
 };
 
@@ -47,11 +66,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'transparent',
-    padding: spacing.base,
+  },
+  content: {
+    flexGrow: 1,
     justifyContent: 'space-between',
   },
   hero: {
-    paddingTop: spacing['3xl'],
+    gap: spacing.sm,
   },
   eyebrow: {
     color: '#8DB7FF',
@@ -65,7 +86,10 @@ const styles = StyleSheet.create({
     fontSize: fontSize['4xl'],
     fontFamily: fonts.extraBold,
     lineHeight: 46,
-    marginBottom: spacing.md,
+  },
+  titleCompact: {
+    fontSize: fontSize['3xl'],
+    lineHeight: 38,
   },
   copy: {
     color: colors.textSecondary,
@@ -76,7 +100,6 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surfaceElevated,
     borderRadius: radius.xl,
-    padding: spacing.xl,
     borderWidth: 1,
     borderColor: colors.borderMuted,
   },
@@ -104,7 +127,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingVertical: spacing.md,
     alignItems: 'center',
-    marginBottom: spacing.xl,
+    marginTop: spacing.sm,
   },
   buttonText: {
     color: colors.textPrimary,

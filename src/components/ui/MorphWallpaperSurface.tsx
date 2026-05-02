@@ -71,6 +71,10 @@ async function resolveImageUri(source: ImageSourcePropType): Promise<string | nu
   return null;
 }
 
+export function preloadMorphWallpaperImage(source: ImageSourcePropType = CARD_WALLPAPER): Promise<string | null> {
+  return resolveImageUri(source);
+}
+
 const CARD_MORPH_SHADER_SOURCE = `
 uniform shader image;
 uniform float progress;

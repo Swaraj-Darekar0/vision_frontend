@@ -10,6 +10,8 @@ interface Props {
   selected: string[];
   onSelect: (selected: string[]) => void;
   maxSelections?: number;
+  contentPadding?: number;
+  bottomPadding?: number;
 }
 
 export const OnboardingQuestion: React.FC<Props> = ({
@@ -20,6 +22,8 @@ export const OnboardingQuestion: React.FC<Props> = ({
   selected,
   onSelect,
   maxSelections = 4,
+  contentPadding = spacing.base,
+  bottomPadding = spacing['3xl'],
 }) => {
   const toggleOption = (option: string) => {
     if (multiSelect) {
@@ -38,10 +42,13 @@ export const OnboardingQuestion: React.FC<Props> = ({
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingHorizontal: contentPadding }]}>
       <Text style={styles.question}>{question}</Text>
       <Text style={styles.subtext}>{subtext}</Text>
-      <ScrollView contentContainerStyle={styles.optionGrid} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[styles.optionGrid, { paddingBottom: bottomPadding }]}
+        showsVerticalScrollIndicator={false}
+      >
         {options.map((option) => {
           const active = selected.includes(option);
           return (
@@ -80,7 +87,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
-    paddingBottom: spacing['3xl'],
   },
   option: {
     borderRadius: radius.full,

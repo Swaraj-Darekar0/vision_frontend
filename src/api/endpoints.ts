@@ -16,5 +16,7 @@ export const ENDPOINTS = {
   planReviewShown:  `${BASE_URL}/plan/review-shown`,
   subscriptionActivate: `${BASE_URL}/subscription/activate`,
   subscriptionStatus: `${BASE_URL}/subscription/status`,
+  notificationsRegisterToken: `${BASE_URL}/notifications/register-token`,
+  notificationsUnregisterToken: `${BASE_URL}/notifications/unregister-token`,
   jobStatus:        (jobId: string) => `${BASE_URL}/analyze/status/${jobId}`,
 } as const;

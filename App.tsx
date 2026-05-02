@@ -13,6 +13,7 @@ import { GradientCanvas } from './src/components/GradientCanvas';
 import { GradientProvider, useGradient } from './src/context/GradientContext';
 import { useAuthStore } from './src/store/authStore';
 import { RootStackParamList } from './src/types/navigation';
+import { registerExpoPushTokenForUser } from './src/services/expoPushNotifications';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
@@ -81,6 +82,42 @@ const APP_LOGO = require('./assets/images/logo2.png');
 const STARTUP_FADE_DURATION_MS = 360;
 const STARTUP_HOLD_DELAY_MS = 140;
 
+function navigateFromNotificationData(
+  navigationRef: React.RefObject<NavigationContainerRef<RootStackParamList> | null>,
+  data: Record<string, unknown>,
+) {
+  const sessionId = data.sessionId as string | undefined;
+  if (sessionId) {
+    navigationRef.current?.navigate('SessionDetail', { sessionId });
+    return;
+  }
+
+  const screen = data.screen as string | undefined;
+  switch (screen) {
+    case 'Dashboard':
+    case 'Profile':
+    case 'DiagnosticEntry':
+    case 'PersonalizationOnboarding':
+    case 'SessionHistory':
+    case 'Results':
+    case 'Welcome':
+      navigationRef.current?.navigate(screen);
+      return;
+    case 'Paywall':
+      navigationRef.current?.navigate('Paywall', { source: 'dashboard' });
+      return;
+    case 'WeeklyReview': {
+      const weekNumber = Number(data.weekNumber);
+      if (Number.isFinite(weekNumber)) {
+        navigationRef.current?.navigate('WeeklyReview', { weekNumber });
+      }
+      return;
+    }
+    default:
+      return;
+  }
+}
+
 function StartupOverlay({
   opacity,
 }: {
@@ -103,6 +140,7 @@ function RootAppShell({
   fontsLoaded: boolean;
 }) {
   const initialize = useAuthStore((state) => state.initialize);
+  const user = useAuthStore((state) => state.user);
   const isLoading = useAuthStore((state) => state.isLoading);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const shouldShowWelcome = useAuthStore((state) => state.shouldShowWelcome);
@@ -118,6 +156,7 @@ function RootAppShell({
   const startupPreparedRef = useRef(false);
   const startupRevealRef = useRef(false);
   const hasHiddenSplashRef = useRef(false);
+  const lastPushRegistrationUserRef = useRef<string | null>(null);
   const [isStartupOverlayVisible, setIsStartupOverlayVisible] = useState(true);
 
   const shouldPrepareWelcomeStartup = useMemo(
@@ -133,6 +172,15 @@ function RootAppShell({
     hasInitializedAuthRef.current = true;
     initialize();
   }, [initialize]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id || lastPushRegistrationUserRef.current === user.id) {
+      return;
+    }
+
+    lastPushRegistrationUserRef.current = user.id;
+    registerExpoPushTokenForUser(user.id);
+  }, [isAuthenticated, user?.id]);
 
   useEffect(() => {
     if (!fontsLoaded || isLoading || startupPreparedRef.current) {
@@ -228,10 +276,7 @@ export default function App() {
 
     // Handle notification response (tapping notification)
     const responseListener = Notifications.addNotificationResponseReceivedListener((response) => {
-      const sessionId = response.notification.request.content.data?.sessionId as string | undefined;
-      if (sessionId && navigationRef.current) {
-        navigationRef.current.navigate('SessionDetail', { sessionId });
-      }
+      navigateFromNotificationData(navigationRef, response.notification.request.content.data ?? {});
     });
 
     return () => {

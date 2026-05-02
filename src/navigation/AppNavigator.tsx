@@ -8,6 +8,7 @@ import LoginScreen from '../screens/LoginScreen';
 import SignupScreen from '../screens/SignupScreen';
 import WelcomeScreen from '../screens/WelcomeScreen';
 import DashboardScreen from '../screens/DashboardScreen';
+import ProfileScreen from '../screens/ProfileScreen';
 import DiagnosticEntryScreen from '../screens/DiagnosticEntryScreen';
 import PostAssessmentScreen from '../screens/PostAssessmentScreen';
 import PersonalizationOnboardingScreen from '../screens/PersonalizationOnboardingScreen';
@@ -46,6 +47,7 @@ const AppNavigator = () => {
         <>
           {shouldShowWelcome && <Stack.Screen name="Welcome" component={WelcomeScreen} />}
           <Stack.Screen name="Dashboard" component={DashboardScreen} />
+          <Stack.Screen name="Profile" component={ProfileScreen} />
           <Stack.Screen name="DiagnosticEntry" component={DiagnosticEntryScreen} />
           <Stack.Screen name="PostAssessment" component={PostAssessmentScreen} />
           <Stack.Screen name="PersonalizationOnboarding" component={PersonalizationOnboardingScreen} />

@@ -6,6 +6,7 @@ export type RootStackParamList = {
   Signup:            undefined;
   Welcome:           undefined;
   Dashboard:         undefined;
+  Profile:           undefined;
   DiagnosticEntry:   undefined;
   PostAssessment:    { result?: EvaluationResult } | undefined;
   PersonalizationOnboarding: undefined;

@@ -17,6 +17,12 @@ import { normalizeEvaluationResult } from './normalizeEvaluationResult';
 import { waitForEvaluationJob } from './waitForEvaluationJob';
 import { formatDurationLabel } from './formatTime';
 import { buildAnalysisFormData } from '../pipeline/buildAnalysisFormData';
+import {
+  ensureVisionNotificationChannel,
+  getVisionNotificationSound,
+  markVisionNotificationSoundUnavailable,
+  REPORT_READY_CHANNEL_ID,
+} from '../services/notificationSound';
 
 export type QueueDrainResult =
   | 'uploaded'
@@ -100,14 +106,29 @@ async function uploadQueuedSession(session: QueuedSession): Promise<QueueDrainRe
       });
     }
 
-    await Notifications.scheduleNotificationAsync({
+    await ensureVisionNotificationChannel(REPORT_READY_CHANNEL_ID, 'Report ready');
+    const notificationRequest: Notifications.NotificationRequestInput = {
       content: {
         title: 'Coach\'s Report Ready',
         body: `Your ${session.topicTitle} session has been analysed.`,
+        sound: getVisionNotificationSound(),
         data: { sessionId: result.session_metadata.session_id },
       },
-      trigger: null,
-    });
+      trigger: { channelId: REPORT_READY_CHANNEL_ID },
+    };
+
+    try {
+      await Notifications.scheduleNotificationAsync(notificationRequest);
+    } catch (notificationError) {
+      markVisionNotificationSoundUnavailable(notificationError);
+      await Notifications.scheduleNotificationAsync({
+        ...notificationRequest,
+        content: {
+          ...notificationRequest.content,
+          sound: true,
+        },
+      });
+    }
 
     await dequeueSession(session.id);
     return 'uploaded';

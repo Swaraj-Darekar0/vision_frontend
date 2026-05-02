@@ -14,6 +14,7 @@ import { clearAllSessions } from '../cache/sessionCache';
 import { CACHE_KEYS } from '../cache/cacheKeys';
 import { UserProfile } from '../types/database';
 import { SpeakerLevel, UserPersonalizationProfile } from '../types/plan';
+import { registerExpoPushTokenForUser, unregisterExpoPushTokenForUser } from '../services/expoPushNotifications';
 import { usePlanStore } from './planStore';
 import { useSessionStore } from './sessionStore';
 import { useStreakStore } from './streakStore';
@@ -100,6 +101,7 @@ async function syncSubscriptionStatusFromBackend(user: User) {
   const next = mergeSubscriptionState(user, {
     subscription_status: data?.status ?? user.subscription_status ?? 'free',
     subscription_plan: data?.plan ?? user.subscription_plan ?? null,
+    subscription_start: data?.subscription_start ?? user.subscription_start ?? null,
     subscription_end: data?.subscription_end ?? user.subscription_end ?? null,
   });
 
@@ -226,6 +228,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       await ensureUserProfileRecord(combinedUser);
       await persistUser(combinedUser);
       await AsyncStorage.setItem(CACHE_KEYS.userProfile(combinedUser.id), JSON.stringify(combinedUser));
+      await registerExpoPushTokenForUser(combinedUser.id);
       set({ user: combinedUser, isAuthenticated: true, shouldShowWelcome: true });
     } catch (error) {
       console.error('[AuthStore] Initialization failed:', error);
@@ -264,6 +267,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
     await persistUser(combinedUser);
     await AsyncStorage.setItem(CACHE_KEYS.userProfile(combinedUser.id), JSON.stringify(combinedUser));
+    await registerExpoPushTokenForUser(combinedUser.id);
     set({ user: combinedUser, isAuthenticated: true, shouldShowWelcome: true });
   },
 
@@ -311,6 +315,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     await ensureUserProfileRecord(newUser);
     await persistUser(newUser);
     await AsyncStorage.setItem(CACHE_KEYS.userProfile(newUser.id), JSON.stringify(newUser));
+    await registerExpoPushTokenForUser(newUser.id);
     set({ user: newUser, isAuthenticated: true, shouldShowWelcome: true });
   },
 
@@ -391,7 +396,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       subscription_status: data?.status ?? 'active',
       subscription_plan: data?.plan ?? plan,
       subscription_end: data?.subscription_end ?? null,
-      subscription_start: user.subscription_start ?? new Date().toISOString(),
+      subscription_start: data?.subscription_start ?? user.subscription_start ?? new Date().toISOString(),
     });
 
     await persistUser(updatedUser);
@@ -413,6 +418,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
     if (
       updatedUser.subscription_status !== user.subscription_status ||
+      updatedUser.subscription_start !== user.subscription_start ||
       updatedUser.subscription_end !== user.subscription_end ||
       updatedUser.subscription_plan !== user.subscription_plan
     ) {
@@ -424,6 +430,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
   logout: async () => {
     const { user } = get();
+    if (user) {
+      await unregisterExpoPushTokenForUser(user.id);
+    }
     await clearPersistedAuth(user?.id);
     await supabase.auth.signOut();
 

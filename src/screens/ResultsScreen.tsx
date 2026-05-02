@@ -16,6 +16,7 @@ import { formatDurationLabel } from '../utils/formatTime';
 import { captureAndShareCard } from '../utils/shareCard';
 import { usePlanStore } from '../store/planStore';
 import { useAuthStore } from '../store/authStore';
+import { useAdaptiveLayout } from '../hooks/useAdaptiveLayout';
 
 type ResultsScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Results'>;
 
@@ -25,6 +26,7 @@ const ResultsScreen = () => {
   const { user } = useAuthStore();
   const { markTopicComplete } = usePlanStore();
   const insets = useSafeAreaInsets();
+  const { bottomSpacing, horizontalPadding, topSpacing } = useAdaptiveLayout();
   
   const cardRef = useRef<ViewShot>(null);
   const [isSharing, setIsSharing] = useState(false);
@@ -88,7 +90,15 @@ const ResultsScreen = () => {
         </ViewShot>
       </View>
 
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, spacing.sm) + spacing.xs }]}>
+      <View
+        style={[
+          styles.header,
+          {
+            paddingTop: Math.max(insets.top, topSpacing),
+            paddingHorizontal: horizontalPadding,
+          },
+        ]}
+      >
         <TouchableOpacity onPress={handleFinish} style={styles.headerIcon}>
           <MaterialIcons name="close" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
@@ -112,7 +122,7 @@ const ResultsScreen = () => {
         localVideoUri={localVideoUri}
       />
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingHorizontal: horizontalPadding, paddingBottom: bottomSpacing }]}>
         <TouchableOpacity style={styles.finishButton} onPress={handleFinish}>
           <Text style={styles.finishButtonText}>Back to Dashboard</Text>
         </TouchableOpacity>
@@ -135,7 +145,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: spacing.base,
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderMuted,
@@ -174,7 +183,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semiBold,
   },
   footer: {
-    padding: spacing.base,
+    paddingTop: spacing.base,
     backgroundColor: 'rgba(0, 0, 0, 0.58)',
     borderTopWidth: 1,
     borderTopColor: colors.borderMuted,

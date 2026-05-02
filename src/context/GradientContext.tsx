@@ -18,6 +18,7 @@ type StartupState = 'blocked' | 'ready' | 'first-morph-pending' | 'normal';
 type MajorRouteName =
   | 'Welcome'
   | 'Dashboard'
+  | 'Profile'
   | 'SessionHistory'
   | 'SessionDetail'
   | 'Results'
@@ -37,6 +38,7 @@ const ROUTE_MORPH_DURATION_MS = 950;
 const MAJOR_ROUTES = new Set<MajorRouteName>([
   'Welcome',
   'Dashboard',
+  'Profile',
   'SessionHistory',
   'SessionDetail',
   'Results',
@@ -66,6 +68,14 @@ const ROUTE_PROFILE_RANGES: Record<MajorRouteName, {
     grain: [0.88, 0.98],
     flowX: [-0.12, 0.12],
     flowY: [-0.08, 0.08],
+  },
+  Profile: {
+    pull: [0.98, 1.12],
+    swirl: [0.94, 1.1],
+    diffusion: [1.02, 1.14],
+    grain: [0.9, 1.0],
+    flowX: [-0.08, 0.1],
+    flowY: [-0.02, 0.12],
   },
   SessionHistory: {
     pull: [1.06, 1.2],

@@ -4,12 +4,13 @@
     "slug": "vision",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/loginbgg.jpg",
+    "newArchEnabled": true,
+    "icon": "./assets/images/vision_app_logo.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/images/logo2.png",
+      "image": "./assets/images/notification_vision_logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#00000"
+      "backgroundColor": "#000000"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -23,20 +24,27 @@
       }
     },
     "android": {
-      "newArchEnabled": true,
       "adaptiveIcon": {
         "backgroundColor": "#000000",
-        "foregroundImage": "./assets/images/loginbgg.jpg",
-        "backgroundImage": "./assets/images/loginbgg.jpg",
-        "monochromeImage": "./assets/images/loginbgg.jpg"
+        "foregroundImage": "./assets/images/vision_app_logo.png",
+        "backgroundImage": "./assets/images/vision_app_logo.png",
+        "monochromeImage": "./assets/images/vision_app_logo.png"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.Vision",
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
+        "android.permission.POST_NOTIFICATIONS",
         "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE"
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
       ]
     },
     "web": {
@@ -45,16 +53,18 @@
     "plugins": [
       "expo-secure-store",
       "expo-font",
-       ["expo-av", {
-        "microphonePermission": "SpeakingCoach uses the microphone to capture your speech."
-      }],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "SpeakingCoach uses the microphone to capture your speech."
+        }
+      ],
       [
         "react-native-vision-camera",
         {
           "cameraPermission": "SpeakingCoach uses the camera to record your presentations.",
           "microphonePermission": "SpeakingCoach uses the microphone to capture your speech.",
           "enableFrameProcessors": true
-        
         }
       ],
       [
@@ -67,14 +77,23 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/logo.jpg",
-          "color": "#1152D4"
+          "icon": "./assets/images/notification_vision_logo.png",
+          "color": "#1152D4",
+          "sounds": [
+            "./assets/EXTRA/pop_soound_effect.mp3"
+          ]
         }
       ],
       "expo-sharing",
       "expo-video",
       "expo-audio",
       "expo-asset"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "904a94a9-ea52-4b9c-9bf6-c3722ef6e6aa"
+      }
+    },
+    "owner": "swarajdarekar"
   }
 }
