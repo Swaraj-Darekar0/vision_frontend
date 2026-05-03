@@ -43,7 +43,19 @@ interface AuthStore {
   updatePersonalizationProfile: (profile: UserPersonalizationProfile) => Promise<void>;
   setSpeakerLevel: (speakerLevel: SpeakerLevel) => Promise<void>;
   markDiagnosticComplete: () => Promise<void>;
-  activateSubscription: (plan: 'weekly' | 'monthly') => Promise<void>;
+  createRazorpaySubscription: (plan: 'weekly' | 'monthly') => Promise<{
+    key_id: string;
+    business_name: string;
+    subscription_id: string;
+    plan: 'weekly' | 'monthly';
+    amount: number;
+    currency: string;
+  }>;
+  verifyRazorpaySubscription: (payload: {
+    razorpay_payment_id: string;
+    razorpay_subscription_id: string;
+    razorpay_signature: string;
+  }) => Promise<void>;
   refreshSubscriptionStatus: () => Promise<void>;
   logout: () => Promise<void>;
   handleSessionExpired: () => Promise<void>;
@@ -382,19 +394,26 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     set({ user: updatedUser });
   },
 
-  activateSubscription: async (plan) => {
+  createRazorpaySubscription: async (plan) => {
     const { user } = get();
     if (!user) throw new Error('No user logged in');
 
-    const { data } = await apiClient.post(ENDPOINTS.subscriptionActivate, {
-      user_id: user.id,
+    const { data } = await apiClient.post(ENDPOINTS.subscriptionCreate, {
       plan,
-      payment_reference: `frontend_${plan}_${Date.now()}`,
     });
+
+    return data;
+  },
+
+  verifyRazorpaySubscription: async (payload) => {
+    const { user } = get();
+    if (!user) throw new Error('No user logged in');
+
+    const { data } = await apiClient.post(ENDPOINTS.subscriptionVerify, payload);
 
     const updatedUser = mergeSubscriptionState(user, {
       subscription_status: data?.status ?? 'active',
-      subscription_plan: data?.plan ?? plan,
+      subscription_plan: data?.plan ?? user.subscription_plan ?? null,
       subscription_end: data?.subscription_end ?? null,
       subscription_start: data?.subscription_start ?? user.subscription_start ?? new Date().toISOString(),
     });

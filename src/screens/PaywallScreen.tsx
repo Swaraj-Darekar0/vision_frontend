@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import RazorpayCheckout, { RazorpayCheckoutFailure } from 'react-native-razorpay';
 import { colors, fonts, fontSize, radius, spacing } from '../theme';
 import { RootStackParamList } from '../types/navigation';
 import { SUBSCRIPTION } from '../theme/constants';
@@ -13,18 +14,41 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Paywall'>;
 
 const PaywallScreen = () => {
   const navigation = useNavigation<NavigationProp>();
-  const { user, activateSubscription } = useAuthStore();
+  const { user, createRazorpaySubscription, verifyRazorpaySubscription } = useAuthStore();
   const { ensurePlan } = usePlanStore();
   const [selectedPlan, setSelectedPlan] = useState<'weekly' | 'monthly'>('weekly');
   const [loading, setLoading] = useState(false);
+  const [statusText, setStatusText] = useState<string | null>(null);
   const { bottomSpacing, cardPadding, horizontalPadding, isNarrow, topSpacing } = useAdaptiveLayout();
 
   const handleContinue = async () => {
     if (!user) return;
 
     setLoading(true);
+    setStatusText('Creating your subscription...');
     try {
-      await activateSubscription(selectedPlan);
+      const checkout = await createRazorpaySubscription(selectedPlan);
+      setStatusText('Opening secure checkout...');
+      const payment = await RazorpayCheckout.open({
+        key: checkout.key_id,
+        subscription_id: checkout.subscription_id,
+        name: checkout.business_name || 'Speaking Coach',
+        description: `${selectedPlan === 'weekly' ? 'Weekly' : 'Monthly'} speaking plan`,
+        currency: checkout.currency,
+        recurring: true,
+        prefill: {
+          email: user.email,
+          name: user.display_name ?? undefined,
+        },
+        notes: {
+          user_id: user.id,
+          app_plan: selectedPlan,
+        },
+        theme: { color: colors.primary },
+      });
+
+      setStatusText('Verifying payment...');
+      await verifyRazorpaySubscription(payment);
       await ensurePlan({
         userId: user.id,
         profile: {
@@ -40,7 +64,15 @@ const PaywallScreen = () => {
         index: 0,
         routes: [{ name: 'Dashboard' }],
       });
+    } catch (error) {
+      const paymentError = error as RazorpayCheckoutFailure;
+      const message =
+        paymentError?.description ||
+        paymentError?.reason ||
+        (error instanceof Error ? error.message : 'Payment could not be completed. Please try again.');
+      Alert.alert('Payment not completed', message);
     } finally {
+      setStatusText(null);
       setLoading(false);
     }
   };
@@ -86,7 +118,7 @@ const PaywallScreen = () => {
 
       <View style={styles.footer}>
         <TouchableOpacity style={styles.button} onPress={() => void handleContinue()} disabled={loading}>
-          <Text style={styles.buttonText}>{loading ? 'Setting up your plan...' : 'Continue'}</Text>
+          <Text style={styles.buttonText}>{loading ? statusText || 'Setting up your plan...' : 'Continue'}</Text>
         </TouchableOpacity>
         <Text style={styles.footerText}>Both plans use the same adaptive system. Access locks again when the subscription period ends.</Text>
       </View>
