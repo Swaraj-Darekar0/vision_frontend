@@ -4,7 +4,6 @@
     "slug": "vision",
     "version": "1.0.0",
     "orientation": "portrait",
-    "newArchEnabled": true,
     "icon": "./assets/images/vision_app_logo.png",
     "userInterfaceStyle": "light",
     "splash": {

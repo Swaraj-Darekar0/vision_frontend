@@ -1,0 +1,37 @@
+# EAS build archive ignore rules.
+# Keep android/ in the archive because this app has custom native ML Kit frame processor code.
+
+node_modules/
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+.kotlin/
+android/.gradle/
+android/.kotlin/
+android/.cxx/
+android/build/
+android/app/build/
+android/app/.cxx/
+android/**/outputs/
+android/**/intermediates/
+android/hs_err_pid*.log
+android/replay_pid*.log
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+.metro-health-check*
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+.DS_Store
+*.pem
+.env*.local
+*.tsbuildinfo
+
+.env
