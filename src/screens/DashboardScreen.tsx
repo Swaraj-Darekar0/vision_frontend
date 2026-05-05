@@ -26,7 +26,10 @@ import { usePlanStore } from '../store/planStore';
 import { useSessionStore } from '../store/sessionStore';
 import { CACHE_KEYS } from '../cache/cacheKeys';
 import { useAdaptiveLayout } from '../hooks/useAdaptiveLayout';
-import { scheduleDailySessionReminders } from '../services/dailySessionReminderNotifications';
+import {
+  cancelDailySessionReminders,
+  scheduleDailySessionReminders,
+} from '../services/dailySessionReminderNotifications';
 
 type DashboardNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Dashboard'>;
 
@@ -43,18 +46,24 @@ const DashboardScreen = () => {
   const [latestSession, setLatestSession] = useState<SessionListEntry | null>(latestSessionSummary);
   const [showNameModal, setShowNameModal] = useState(false);
   const [wasOffline, setWasOffline] = useState(false);
-  const todayIndex = Math.min(dayjs().day() === 0 ? 7 : dayjs().day(), 7);
+  const planDayIndex = useMemo(() => {
+    if (!currentPlan?.week_start_date) {
+      return dayjs().day() === 0 ? 7 : dayjs().day();
+    }
+
+    return dayjs().startOf('day').diff(dayjs(currentPlan.week_start_date).startOf('day'), 'day') + 1;
+  }, [currentPlan?.week_start_date]);
+  const isInsidePlanWeek = planDayIndex >= 1 && planDayIndex <= 7;
   const todaySessions = useMemo(
     () =>
       currentPlan?.topics
-        .filter((topic) => topic.day === todayIndex)
+        .filter((topic) => isInsidePlanWeek && topic.day === planDayIndex)
         .sort((a, b) => a.session - b.session) ?? [],
-    [currentPlan, todayIndex],
+    [currentPlan, isInsidePlanWeek, planDayIndex],
   );
   const dailySessionTarget = useMemo(() => {
     if (!currentPlan) return 0;
-    const plannedCount = todaySessions.length || currentPlan.sessions_per_day || 0;
-    return Math.min(plannedCount, 3);
+    return todaySessions.length;
   }, [currentPlan, todaySessions.length]);
   const completedTodayCount = useMemo(
     () => todaySessions.filter((topic) => topic.completed).length,
@@ -80,6 +89,10 @@ const DashboardScreen = () => {
 
     return Math.min(sessions.length, totalAllocatedSessions);
   }, [currentPlan, sessions.length, totalAllocatedSessions]);
+  const activeTodayTopic = useMemo(
+    () => todaySessions.find((topic) => !topic.completed) ?? null,
+    [todaySessions],
+  );
   const streakSquareStates = useMemo(() => {
     if (!currentPlan?.topics?.length) {
       return undefined;
@@ -93,13 +106,17 @@ const DashboardScreen = () => {
           return 'completed' as const;
         }
 
-        if (topic.day < todayIndex) {
+        if (planDayIndex > 7 || topic.day < planDayIndex) {
           return 'missed' as const;
         }
 
-        return topic.day === todayIndex ? 'today' as const : 'pending' as const;
+        return activeTodayTopic &&
+          topic.day === activeTodayTopic.day &&
+          topic.session === activeTodayTopic.session
+          ? 'today' as const
+          : 'pending' as const;
       });
-  }, [currentPlan, todayIndex]);
+  }, [activeTodayTopic, currentPlan, planDayIndex]);
   const fallbackTopic = useMemo(
     () =>
       currentPlan?.topics
@@ -172,7 +189,14 @@ const DashboardScreen = () => {
   ]);
 
   useEffect(() => {
-    if (!user?.id || user.subscription_status !== 'active' || !currentPlan?.topics?.length) {
+    if (!user?.id) {
+      return;
+    }
+
+    if (user.subscription_status !== 'active' || !currentPlan?.topics?.length || !isInsidePlanWeek) {
+      void cancelDailySessionReminders(user.id).catch((error) => {
+        console.warn('[Dashboard] Failed to cancel daily session reminders:', error);
+      });
       return;
     }
 
@@ -182,7 +206,7 @@ const DashboardScreen = () => {
     }).catch((error) => {
       console.warn('[Dashboard] Failed to schedule daily session reminders:', error);
     });
-  }, [currentPlan?.topics, remainingTodayCount, user?.id, user?.subscription_status]);
+  }, [currentPlan?.topics, isInsidePlanWeek, remainingTodayCount, user?.id, user?.subscription_status]);
 
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener((state) => {
@@ -310,13 +334,14 @@ const DashboardScreen = () => {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {milestoneTip && milestoneTipSkill && (
+        {/* keeeping the streak mielstone part commented , we will integrate them in laterr updates */}
+        {/* {milestoneTip && milestoneTipSkill && (
           <StreakMilestoneTip
             tip={milestoneTip}
             skill={milestoneTipSkill}
             onDismiss={dismissMilestoneTip}
           />
-        )}
+        )} */}
 
         <PendingQueueBanner />
 

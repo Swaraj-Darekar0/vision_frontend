@@ -86,19 +86,44 @@ function resampleLinear(
 }
 
 export async function decodeAudioFile(uri: string): Promise<DecodedAudio> {
-  const audioApiModule = await import('react-native-audio-api');
-  const { AudioContext } = audioApiModule;
-
   const normalizedUri = uri.startsWith('file://') ? uri : `file://${uri}`;
-  const base64 = await FileSystem.readAsStringAsync(normalizedUri, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
-  const arrayBuffer = base64ToArrayBuffer(base64);
+  let AudioContext: typeof import('react-native-audio-api').AudioContext;
+  try {
+    const audioApiModule = await import('react-native-audio-api');
+    AudioContext = audioApiModule.AudioContext;
+  } catch (error) {
+    throw new Error(
+      `react-native-audio-api failed to load. Rebuild the native app and verify autolinking. Cause: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+
+  let arrayBuffer: ArrayBuffer;
+  try {
+    const base64 = await FileSystem.readAsStringAsync(normalizedUri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    arrayBuffer = base64ToArrayBuffer(base64);
+  } catch (error) {
+    throw new Error(
+      `Failed to read audio file for frontend decoding: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
 
   const context = new AudioContext();
 
   try {
-    const buffer = await context.decodeAudioData(arrayBuffer);
+    let buffer: Awaited<ReturnType<typeof context.decodeAudioData>>;
+    try {
+      buffer = await context.decodeAudioData(arrayBuffer);
+    } catch (error) {
+      throw new Error(
+        `react-native-audio-api failed to decode audio data from ${normalizedUri}. Cause: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
     const channels: Float32Array[] = [];
 
     for (let index = 0; index < buffer.numberOfChannels; index += 1) {

@@ -102,7 +102,7 @@ const SignupScreen = () => {
 
     setLoading(true);
     try {
-      await signup(email, password);
+      await signup(email.trim(), password);
       handleSignIn(navigation);
     } catch (error: any) {
       Alert.alert(

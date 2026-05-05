@@ -48,13 +48,72 @@ function patchFile(filePath, transform) {
 }
 
 const gradlePatched = patchFile(buildGradlePath, (content) => {
-  if (content.includes('buildStagingDirectory "${rootProject.projectDir}/.cxx/rnaa"')) {
-    return content;
-  }
+  let updated = content;
 
   const target = `  externalNativeBuild {\n    cmake {\n      path "CMakeLists.txt"\n    }\n  }`;
   const replacement = `  externalNativeBuild {\n    cmake {\n      path "CMakeLists.txt"\n      buildStagingDirectory "\${rootProject.projectDir}/.cxx/rnaa"\n    }\n  }`;
-  return content.includes(target) ? content.replace(target, replacement) : content;
+  if (!updated.includes('buildStagingDirectory "${rootProject.projectDir}/.cxx/rnaa"')) {
+    updated = updated.includes(target) ? updated.replace(target, replacement) : updated;
+  }
+
+  const bashDownloadTask = `task downloadPrebuiltBinaries(type: Exec) {
+  commandLine 'chmod', '+x', '../scripts/download-prebuilt-binaries.sh'
+  commandLine 'bash', '../scripts/download-prebuilt-binaries.sh'
+  args 'android', isFFmpegDisabled() ? 'skipffmpeg' : ''
+}`;
+
+  const windowsSafeDownloadTask = `task downloadPrebuiltBinaries {
+  def mainDownloadUrl = "https://github.com/software-mansion-labs/rn-audio-libs/releases/download"
+  def tag = "v2.0.0"
+  def downloadNames = [
+    "armeabi-v7a.zip",
+    "arm64-v8a.zip",
+    "x86.zip",
+    "x86_64.zip",
+    "ffmpeg_ios.zip",
+    "iphoneos.zip",
+    "iphonesimulator.zip",
+    "jniLibs.zip"
+  ]
+  def tempDownloadDir = file("\${projectDir}/audioapi-binaries-temp")
+  def projectRoot = file("\${projectDir}/..")
+  def jniLibsDestination = file("\${projectRoot}/android/src/main")
+  def normalDestination = file("\${projectRoot}/common/cpp/audioapi/external")
+
+  doLast {
+    tempDownloadDir.mkdirs()
+    downloadNames.each { name ->
+      def extractedDirName = name.replace(".zip", "")
+      if ((extractedDirName == "ffmpeg_ios" || extractedDirName == "jniLibs") && isFFmpegDisabled()) {
+        return
+      }
+
+      def outputDir = name == "jniLibs.zip" ? jniLibsDestination : normalDestination
+      def finalCheckPath = file("\${outputDir}/\${extractedDirName}")
+      if (finalCheckPath.exists()) {
+        return
+      }
+
+      outputDir.mkdirs()
+      def zipFile = file("\${tempDownloadDir}/\${name}")
+      new URL("\${mainDownloadUrl}/\${tag}/\${name}").withInputStream { input ->
+        zipFile.withOutputStream { output -> output << input }
+      }
+      copy {
+        from zipTree(zipFile)
+        into outputDir
+        exclude "__MACOSX/**"
+      }
+    }
+    delete tempDownloadDir
+  }
+}`;
+
+  if (updated.includes(bashDownloadTask)) {
+    updated = updated.replace(bashDownloadTask, windowsSafeDownloadTask);
+  }
+
+  return updated;
 });
 
 const cmakePatched = patchFile(cmakePath, (content) => {

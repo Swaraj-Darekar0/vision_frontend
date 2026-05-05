@@ -47,20 +47,36 @@ type MeydaLike = {
 };
 
 async function loadMeyda(): Promise<MeydaLike> {
-  const module = await import('meyda');
-  const meyda = (module.default ?? module) as MeydaLike;
-  meyda.bufferSize = AUDIO_CONSTANTS.FFT_SIZE;
-  meyda.sampleRate = AUDIO_CONSTANTS.SAMPLE_RATE;
-  return meyda;
+  try {
+    const module = await import('meyda');
+    const meyda = (module.default ?? module) as MeydaLike;
+    meyda.bufferSize = AUDIO_CONSTANTS.FFT_SIZE;
+    meyda.sampleRate = AUDIO_CONSTANTS.SAMPLE_RATE;
+    return meyda;
+  } catch (error) {
+    throw new Error(
+      `meyda failed to load for frontend acoustic extraction. Cause: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
 }
 
 async function loadPitchDetector(): Promise<{
   findPitch: (frame: Float32Array, sampleRate: number) => Promise<PitchDetectorResult>;
 }> {
-  const module = await import('react-native-pitch-detector');
-  return (module.default ?? module) as {
-    findPitch: (frame: Float32Array, sampleRate: number) => Promise<PitchDetectorResult>;
-  };
+  try {
+    const module = await import('react-native-pitch-detector');
+    return (module.default ?? module) as {
+      findPitch: (frame: Float32Array, sampleRate: number) => Promise<PitchDetectorResult>;
+    };
+  } catch (error) {
+    throw new Error(
+      `react-native-pitch-detector failed to load. Install its native dependencies and rebuild. Cause: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
 }
 
 function computePitchVarianceNormalized(voicedF0: number[]): number {

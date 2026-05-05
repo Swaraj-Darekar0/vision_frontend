@@ -99,8 +99,13 @@ export async function registerExpoPushTokenForUser(userId: string) {
     };
 
     console.log('[PushNotifications] Sending registration payload to backend.', payload);
-    const response = await apiClient.post(ENDPOINTS.notificationsRegisterToken, payload);
-    console.log('[PushNotifications] Backend token registration succeeded.', response.data);
+    try {
+      const response = await apiClient.post(ENDPOINTS.notificationsRegisterToken, payload);
+      console.log('[PushNotifications] Backend token registration succeeded.', response.data);
+    } catch (apiError) {
+      console.error('[PushNotifications] Backend registration request failed:', getErrorMessage(apiError));
+      throw apiError;
+    }
   } catch (error) {
     console.warn('[PushNotifications] Token registration skipped:', getErrorMessage(error));
   }

@@ -99,7 +99,7 @@ const LoginScreen = () => {
 
     setLoading(true);
     try {
-      await login(email, password);
+      await login(email.trim(), password);
       handleSignIn(navigation);
     } catch (error: any) {
       Alert.alert(

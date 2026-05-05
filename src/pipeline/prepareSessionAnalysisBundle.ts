@@ -68,42 +68,35 @@ export async function prepareSessionAnalysisBundle(
   const shouldUseDeviceAcousticPipeline = DEVICE_PIPELINE_FLAGS.useDeviceAcousticPipeline;
 
   if (shouldUseDeviceAcousticPipeline) {
-    try {
-      onStageChange?.('acoustic', 'decoding_audio');
-      const audioBuildResult = await buildAudioAcousticJson(
-        landmarkPayload.session_id,
-        transcriptionAudioUri,
-        (detailStage) => onStageChange?.('acoustic', detailStage),
-      );
-      audioAcousticJson = audioBuildResult.payload;
-      audioAcousticJsonUri = await writeJsonArtifact(
-        'audio_acoustic',
-        landmarkPayload.session_id,
-        audioAcousticJson,
-      );
-      console.log('[DevicePipeline] Acoustic metrics stage completed', {
+    onStageChange?.('acoustic', 'decoding_audio');
+    const audioBuildResult = await buildAudioAcousticJson(
+      landmarkPayload.session_id,
+      transcriptionAudioUri,
+      (detailStage) => onStageChange?.('acoustic', detailStage),
+    );
+    audioAcousticJson = audioBuildResult.payload;
+    audioAcousticJsonUri = await writeJsonArtifact(
+      'audio_acoustic',
+      landmarkPayload.session_id,
+      audioAcousticJson,
+    );
+    console.log('[DevicePipeline] Acoustic metrics stage completed', {
+      sessionId: landmarkPayload.session_id,
+      audioAcousticJsonUri,
+      analyzedAudioUri: transcriptionAudioUri,
+    });
+    if (audioBuildResult.debugStats) {
+      console.log('[DevicePipeline] Acoustic analysis debug', {
         sessionId: landmarkPayload.session_id,
-        audioAcousticJsonUri,
-        analyzedAudioUri: transcriptionAudioUri,
-      });
-      if (audioBuildResult.debugStats) {
-        console.log('[DevicePipeline] Acoustic analysis debug', {
-          sessionId: landmarkPayload.session_id,
-          ...audioBuildResult.debugStats,
-        });
-      }
-    } catch (error) {
-      console.warn('[DevicePipeline] Falling back to backend acoustic extraction', {
-        sessionId: landmarkPayload.session_id,
-        analyzedAudioUri: transcriptionAudioUri,
-        error: error instanceof Error ? error.message : String(error),
+        ...audioBuildResult.debugStats,
       });
     }
   } else {
-    console.log('[DevicePipeline] Acoustic metrics stage skipped', {
-      sessionId: landmarkPayload.session_id,
-      deviceFlagEnabled: DEVICE_PIPELINE_FLAGS.useDeviceAcousticPipeline,
-    });
+    throw new Error('Device acoustic pipeline is disabled. Frontend acoustic metrics are mandatory.');
+  }
+
+  if (!audioAcousticJsonUri) {
+    throw new Error('Frontend acoustic metrics are mandatory, but audio_acoustic_json was not created.');
   }
 
   const bundle = {
